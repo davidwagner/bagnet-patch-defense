@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from skimage import feature, transform
 from bagnets.pytorch import Bottleneck
+import torch
 import torch.nn as nn
 import math
 from torch.utils import model_zoo
@@ -123,8 +124,6 @@ def generate_heatmap_pytorch(model, image, target, patchsize):
 # Helper functions from 2019-5-22 notebook
 # Reference: https://github.com/wielandbrendel/bag-of-local-features-models/blob/master/bagnets/utils.py
 ##################################################
-
-
 def pad_image(image, patchsize):
     _, c, x, y = image.shape
     padded_image = np.zeros((c, x + patchsize - 1, y + patchsize - 1))
@@ -233,7 +232,7 @@ def compute_saliency_map(images, labels, model, criterion, device):
     saliency = np.amax(np.absolute(images.grad.cpu().numpy()), axis=1)
     return saliency
 
-def plot_saliency(images, saliency):
+def plot_saliency(images, saliency, alpha=0):
     for i in range(len(saliency)):
         fig = plt.figure(figsize=(8, 4))
         ax = plt.subplot(121)
@@ -244,9 +243,11 @@ def plot_saliency(images, saliency):
         ax = plt.subplot(122)
         ax.set_title('saliency map')
         plt.imshow((saliency[i]), cmap=plt.cm.hot)
+        if alpha:
+            plt.imshow(convert2channel_last(images[i]), alpha=alpha)
         plt.axis('off')
         plt.show()
-        
+       
 class BottleneckDebug(nn.Module):
     expansion = 4
 
