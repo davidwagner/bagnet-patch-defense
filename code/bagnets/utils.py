@@ -146,16 +146,25 @@ def extract_patches(image, patchsize):
     patches = patches.contiguous().view((-1, 3, patchsize, patchsize))
     return patches
 
-def bagnet_predict(model, images, device, return_class=True):
+def bagnet_predict(model, images, k=1, return_class=True):
+    """ Make top-K prediction on IMAGES by MODEL
+    Inputs:
+    - model: pytorch model. model for prediction
+    - images: pytorch tensor. images to be predicted on
+    - k: number of classes to return for each image (top-k most possible ones)
+    - return_class: If True, then return classes as prediction; otherwise, return probability of prediction classes
+    Return:
+    - indices.cpu().numpy(): numpy array at CPU. prediction K classes
+    - values.cpu().numpy(): numpy array at CPU. top-K prediction probability
+    """
     with torch.no_grad():
-        images = torch.from_numpy(images).to(device)
         logits = model(images)
         p = torch.nn.Softmax(dim=1)(logits)
-        p = p.cpu().numpy()
+        values, indices = torch.topk(p, k, dim=1)
         if return_class:
-            return np.argmax(p, axis=1)
+            return indices.cpu().numpy()
         else:
-            return p
+            return values.cpu().numpy()
 
 def compare_heatmap(bagnet, patches, gt, target, original, batch_size=1000):
     with torch.no_grad():
@@ -538,3 +547,17 @@ def bagnet33_RF(batch_size, coordinate, device, pretrained=False, strides=[2, 2,
         model.load_state_dict(model_zoo.load_url(model_urls['bagnet33']))
     return model
 ###################################################
+
+###################################################
+# Helper function from 5-28 notebook
+##################################################
+def get_topk_acc(y_hat, y):
+    """ Compute top-k accuracy
+    Input:
+    - y_hat: numpy array with shape (batchsize, K). top-k prediction classes
+    - y: numpy array with shape(batchsize, ). target classes
+    Return: top-k accuracy
+    """
+    is_correct = [y[i] in y_hat[i] for i in range(y.size)]
+    is_correct = np.array(is_correct)
+    return is_correct.sum()/y.size
