@@ -549,7 +549,7 @@ def bagnet33_RF(batch_size, coordinate, device, pretrained=False, strides=[2, 2,
 ###################################################
 
 ###################################################
-# Helper function from 5-28 notebook
+# Helper function from 5-29 notebook
 ##################################################
 def get_topk_acc(y_hat, y):
     """ Compute top-k accuracy
@@ -561,3 +561,35 @@ def get_topk_acc(y_hat, y):
     is_correct = [y[i] in y_hat[i] for i in range(y.size)]
     is_correct = np.array(is_correct)
     return is_correct.sum()/y.size
+
+def validate(val_loader, model, acc_fn, device, k=5):
+    """Validate model's top-k accuracy
+    Input:
+    - val_loader: pytorch data loader.
+    - model: pytorch model
+    - acc_fn: function calculating top-k accuracy. Taks numpy array as inputs
+    Return:
+    val_acc: float
+    """
+    # switch to evaluate mode
+    model.eval()
+    total_iter = len(val_loader)
+    cum_acc = 0
+    with torch.no_grad():
+        start = time.time()
+        for i, (images, target) in enumerate(val_loader):
+            images, target = images.to(device), target.to(device)
+            tic = time.time()
+            logits = model(images)
+            tac = time.time()
+            # measure accuracy
+            p = torch.nn.Softmax(dim=1)(logits)
+            _, y_hat = torch.topk(p, k=k, dim=1)
+            acc = acc_fn(y_hat.cpu().numpy(), target.cpu().numpy())
+            cum_acc += acc
+
+            print('Iteration {}, validation accuracy: {:.3f}, time: {}s'.format(i, acc, tac-tic))
+    end = time.time()
+    val_acc = cum_acc / total_iter
+    print('Validation accuracy: {:.3f}, time: {}s'.format(val_acc, end-start))
+    return val_acc
