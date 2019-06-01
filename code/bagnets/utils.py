@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from skimage import feature, transform
 from bagnets.pytorch import Bottleneck
+import time
 import torch
 import torch.nn as nn
 import math
@@ -233,6 +234,16 @@ def attack_patch(image, patchsize, num_patches, seed=None):
 # Helper function from 5-26 notebook
 ###################################################
 def compute_saliency_map(images, labels, model, criterion, device):
+    """Compute saliency map accroding to criterion. This implementation is based on the description in https://arxiv.org/abs/1312.6034
+    Input:
+    - images (numpy array): images
+    - labels (numpy array): labels
+    - model (pytorch model): model
+    - criterion (pytorch loss function): loss function to compute gradients
+    - device: context
+    Output:
+    - saliency (numpy array): saliency map
+    """
     images, labels = torch.from_numpy(images).to(device), torch.from_numpy(labels).to(device)
     images.requires_grad_(True)
     logits = model(images)
@@ -242,6 +253,12 @@ def compute_saliency_map(images, labels, model, criterion, device):
     return saliency
 
 def plot_saliency(images, saliency, alpha=0):
+    """Plot saliency map
+    Input:
+    - images (numpy array): images
+    - saliency (numpy array): saliency map
+    - alpha (float): transparency
+    """
     for i in range(len(saliency)):
         fig = plt.figure(figsize=(8, 4))
         ax = plt.subplot(121)
@@ -549,7 +566,7 @@ def bagnet33_RF(batch_size, coordinate, device, pretrained=False, strides=[2, 2,
 ###################################################
 
 ###################################################
-# Helper function from 5-29 notebook
+# Helper function from 2019-5-29 notebook
 ##################################################
 def get_topk_acc(y_hat, y):
     """ Compute top-k accuracy
@@ -562,7 +579,7 @@ def get_topk_acc(y_hat, y):
     is_correct = np.array(is_correct)
     return is_correct.sum()/y.size
 
-def validate(val_loader, model, acc_fn, device, k=5):
+def validate(val_loader, model, device, k=5):
     """Validate model's top-k accuracy
     Input:
     - val_loader: pytorch data loader.
@@ -575,6 +592,7 @@ def validate(val_loader, model, acc_fn, device, k=5):
     model.eval()
     total_iter = len(val_loader)
     cum_acc = 0
+    val_time = 0
     with torch.no_grad():
         start = time.time()
         for i, (images, target) in enumerate(val_loader):
@@ -585,11 +603,62 @@ def validate(val_loader, model, acc_fn, device, k=5):
             # measure accuracy
             p = torch.nn.Softmax(dim=1)(logits)
             _, y_hat = torch.topk(p, k=k, dim=1)
-            acc = acc_fn(y_hat.cpu().numpy(), target.cpu().numpy())
+            y_hat, target = y_hat.cpu().numpy(), target.cpu().numpy()
+            acc = sum([target[i] in y_hat[i] for i in range(target.size)]) / target.size
             cum_acc += acc
+            val_time += tac-tic
 
             print('Iteration {}, validation accuracy: {:.3f}, time: {}s'.format(i, acc, tac-tic))
     end = time.time()
     val_acc = cum_acc / total_iter
-    print('Validation accuracy: {:.3f}, time: {}s'.format(val_acc, end-start))
+    print('Validation accuracy: {:.3f}, validation time: {:.2f}, total time: {:.2f}s'.format(val_acc, val_time, end-start))
     return val_acc
+####################################################
+
+####################################################
+# Helper functions from 2019-5-31 notebook
+####################################################
+
+def bagnet_patch_predict(bagnet, images, k=1, return_class=True):
+    """bagnet makes top-k predictions based on patches
+    Input:
+    - bagnet (pytorch model): bagnet without average pooling
+    - images (pytorch tensor): a batch of images
+    - k (int): top-k prediction
+    - return_class (bool): if true, return class index; otherwise return class evidence
+    Output: (numpy array): prediction
+    """
+    with torch.no_grad():
+        logits = bagnet(images)
+    logits = logits.permute(0, 3, 1, 2)
+    N = logits.shape[0]
+    logits = logits.view(N, 1000, -1)
+    avg_logits = torch.mean(logits, dim=2)
+    values, indices = torch.topk(avg_logits, k, dim=1)
+    if return_class:
+        return indices.cpu().numpy()
+    else:
+        return values.cpu().numpy()
+
+def get_heatmap(bagnet, images, targets):
+    """Generates low-resolution heatmap for Bagnet-33
+    Input:
+    - bagnet (pytorch): Bagnet without average pooling
+    - images (pytorch tensor): images
+    - targets (int list): for which class the heatmap is computed for
+    Output: (numpy array) heatmap
+    """
+    with torch.no_grad():
+        patch_logits = bagnet(images)
+    patch_logits = patch_logits.permute([0, 3, 1, 2]).cpu().numpy()
+    N = images.shape[0]
+    heatmaps = np.zeros((N, 224, 224))
+    for z in range(N):
+        patch_target_logits = patch_logits[z, targets[z], :, :]
+        for p, i in enumerate(range(33, 224, 8)):
+            for q, j in enumerate(range(33, 224, 8)):
+                patch = np.full((33, 33), patch_target_logits[p, q])
+                heatmaps[z, i-33:i, j-33:j] = patch
+    return heatmaps
+
+######################################################
