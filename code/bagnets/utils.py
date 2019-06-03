@@ -167,6 +167,7 @@ def bagnet_predict(model, images, k=1, return_class=True):
         else:
             return values.cpu().numpy()
 
+#TODO: need to be updated
 def compare_heatmap(bagnet, patches, gt, target, original, batch_size=1000):
     with torch.no_grad():
         gt_logits_list, target_logits_list = [], []
@@ -390,9 +391,11 @@ class BagNetDebug(nn.Module):
             x = self.fc(x)
             print('BagNet: shape of final output: {}'.format(x.shape))
         else:
+            print('BagNet: return logits of patches')
             x = x.permute(0,2,3,1)
+            print('BagNet: shape after transpose: {}'.format(x.shape))
             x = self.fc(x)
-
+            print('BagNet: shape of final output: {}'.format(x.shape))
         return x
 
 def bagnet33_debug(pretrained=False, strides=[2, 2, 2, 1], **kwargs):
@@ -409,23 +412,6 @@ def bagnet33_debug(pretrained=False, strides=[2, 2, 2, 1], **kwargs):
 ###################################################
 # Helper function from 5-27 notebook
 ###################################################
-def bagnet_patch_predict(bagnet, patches, device, batch_size=256, return_class=True):
-    """ Take a batch of patches as input, and make prediction using bagnet.
-    """
-    N, M, C, P, P = patches.shape
-    with torch.no_grad():
-        cum_logits = torch.zeros(N, 1000).to(device) # ImageNet has 1000 classes
-        for n in range(N):
-            for batch_patches in torch.split(patches[n], batch_size):
-                logits = bagnet(batch_patches)
-                sum_logits = torch.sum(logits, dim=0)
-                cum_logits[n, :] += sum_logits
-        p = F.softmax(cum_logits/M, dim=1)
-        if return_class:
-            return torch.argmax(p, dim=1)
-        else:
-            return p.cpu().numpy()
-        
 class BottleneckRF(nn.Module):
     expansion = 4
 
@@ -579,12 +565,14 @@ def get_topk_acc(y_hat, y):
     is_correct = np.array(is_correct)
     return is_correct.sum()/y.size
 
-def validate(val_loader, model, device, k=5):
+def validate(val_loader, model, device, k=5, clip=None, **kwargs):
     """Validate model's top-k accuracy
     Input:
     - val_loader: pytorch data loader.
     - model: pytorch model
-    - acc_fn: function calculating top-k accuracy. Taks numpy array as inputs
+    - device: context
+    - k (int): top-k accuracy
+    - clip (function): If not None, apply clipping on patch logits
     Return:
     val_acc: float
     """
@@ -598,11 +586,15 @@ def validate(val_loader, model, device, k=5):
         for i, (images, target) in enumerate(val_loader):
             images, target = images.to(device), target.to(device)
             tic = time.time()
-            logits = model(images)
+            if clip:
+                logits = model(images)
+                logits = clip(logits, **kwargs)
+                logits = torch.mean(logits, dim=(1, 2))
+            else:
+                logits = model(images)
             tac = time.time()
             # measure accuracy
-            p = torch.nn.Softmax(dim=1)(logits)
-            _, y_hat = torch.topk(p, k=k, dim=1)
+            _, y_hat = torch.topk(logits, k=k, dim=1)
             y_hat, target = y_hat.cpu().numpy(), target.cpu().numpy()
             acc = sum([target[i] in y_hat[i] for i in range(target.size)]) / target.size
             cum_acc += acc
@@ -619,21 +611,21 @@ def validate(val_loader, model, device, k=5):
 # Helper functions from 2019-5-31 notebook
 ####################################################
 
-def bagnet_patch_predict(bagnet, images, k=1, return_class=True):
+def bagnet_patch_predict(bagnet, images, k=1, return_class=True, clip=None, **kwargs):
     """bagnet makes top-k predictions based on patches
     Input:
     - bagnet (pytorch model): bagnet without average pooling
     - images (pytorch tensor): a batch of images
     - k (int): top-k prediction
     - return_class (bool): if true, return class index; otherwise return class evidence
+    - clip (function): if not None, then apply clipping on logits
     Output: (numpy array): prediction
     """
     with torch.no_grad():
         logits = bagnet(images)
-    logits = logits.permute(0, 3, 1, 2)
-    N = logits.shape[0]
-    logits = logits.view(N, 1000, -1)
-    avg_logits = torch.mean(logits, dim=2)
+    if clip:
+        logits = clip(logits, **kwargs)
+    avg_logits = torch.mean(logits, dim=(1, 2))
     values, indices = torch.topk(avg_logits, k, dim=1)
     if return_class:
         return indices.cpu().numpy()
