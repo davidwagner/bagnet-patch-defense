@@ -14,7 +14,11 @@ import pickle
 import logging
 from absl import flags
 from time import gmtime, strftime
+import sys
+import json
 
+FLAGS = flags.FLAGS
+FLAGS(sys.argv)
 flags.DEFINE_integer('N', 50, 'number of images')
 flags.DEFINE_integer('seed', 42, 'random seed for sampling images from ImageNet')
 flags.DEFINE_multi_integer('attack_size', [20, 20], 'size of sticker')
@@ -27,7 +31,6 @@ flags.DEFINE_integer('nb_iter', 40, 'number of iterations for PGD')
 flags.DEFINE_float('stepsize', 0.5, 'stepsize of PGD')
 flags.DEFINE_integer('metabatch_size', 35, 'metabatch size')
 flags.DEFINE_string('output_root', './results', 'directory for storing results')
-FLAGS = flags.FLAGS
 
 ###################################
 # Configuration
@@ -35,8 +38,9 @@ FLAGS = flags.FLAGS
 clip_fn_dic = {"tanh_linear":tanh_linear, 
                "binarize":binarize}
 
-clip_fn = clip_fn_dic[FLAGS.clip_fn]
+clip_fn = clip_fn_dic["tanh_linear"]
 
+"""
 N = FLAGS.N
 seed = FLAGS.seed
 attack_size = FLAGS.attack_size
@@ -44,7 +48,16 @@ stride = FLAGS.stride
 a, b = FLAGS.a, FLAGS.b
 eps, nb_iter, stepsize = FLAGS.eps, FLAGS.nb_iter, FLAGS.stepsize
 metabatch_size = FLAGS.metabatch_size
+"""
+N = 50
+seed = 42
+attack_size = (20, 20)
+stride = 20
+a, b = 0.05, -1
+eps, nb_iter, stepsize = 5., 40, 0.5
+metabatch_size = 30
 
+output_root = "/mnt/data/results"
 # experiment name
 """
 FLAGS.output_root/
@@ -53,9 +66,9 @@ FLAGS.output_root/
         [NAME].log
         dataset/
 """
-NAME = '{}-{}-{}-{}-{}-{}-{}-{}-{}-{}'.format(FLAGS.N, FLAGS.seed, FLAGS.attack_size, FLAGS.stride, FLAGS.clip_fn, FLAGS.a, FLAGS.b, FLAGS.eps, FLAGS.nb_iter, FLAGS.stepsize)
+NAME = '{}-{}-{}-{}-{}-{}-{}-{}-{}-{}'.format(N, seed, attack_size, stride, "tanh_linear", a, b, eps, nb_iter, stepsize)
 
-OUTPUT_PATH = os.path.join(FLAGS.output_root, NAME) 
+OUTPUT_PATH = os.path.join(output_root, NAME) 
 
 if not os.path.exists(OUTPUT_PATH):
             os.mkdir(OUTPUT_PATH)
@@ -64,7 +77,8 @@ if not os.path.exists(os.path.join(OUTPUT_PATH, "dataset")):
 
 LOG_PATH = os.path.join(OUTPUT_PATH, NAME+'.log')
 
-logger = logging.getLogger(LOG_PATH, level=logging.INFO)
+logger = logging.getLogger(LOG_PATH)
+logger.setLevel(logging.INFO)
 logging.info(strftime("%Y-%m-%d %H:%M:%S", gmtime()))
 logging.info("N: {}, seed: {}, clip_fn: {}, a: {}, b: {}, eps: {}, nb_iter: {}, stepsize: {}".format(FLAGS.N, FLAGS.seed, FLAGS.clip_fn, FLAGS.a, FLAGS.b, FLAGS.eps, FLAGS.nb_iter, FLAGS.stepsize))
 ###################################
@@ -82,7 +96,7 @@ else:
     logging.info(device)
 
 # idx2class dictionary
-with open('../imagenet/imagenet_class_index.json', mode='r') as file:
+with open('/mnt/data/imagenet/imagenet_class_index.json', mode='r') as file:
     class_idx = json.load(file)
 idx2label = [class_idx[str(k)][1] for k in range(len(class_idx))]
 
@@ -93,7 +107,7 @@ imagenet_transform = transforms.Compose([transforms.Resize(256),
                                          transforms.CenterCrop(224), 
                                          transforms.ToTensor(), 
                                          normalize])
-imagenet_val = datasets.ImageNet('../imagenet/', split='val', download=False, 
+imagenet_val = datasets.ImageNet('/mnt/data/imagenet/', split='val', download=False, 
                                          transform=imagenet_transform)
 
 np.random.seed(seed)
