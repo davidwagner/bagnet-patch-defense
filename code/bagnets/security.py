@@ -491,6 +491,7 @@ class MetaBatch:
         for k in [i for i in range(self.size) if i not in indices]:
             if self.record[k, 0] not in self.adv.keys() and self.record[k, -1] < self.max_iter+1: self.record[k, -1] += 1 
             if self.record[k, -1] == self.max_iter:
+                self.succ_list.append(self.record[k, 0])
                 try:
                     image, label = next(self.waitlist)
                     self.orig_list[self.global_step] = (image[0].clone(), label.item())
