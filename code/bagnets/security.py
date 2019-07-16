@@ -449,11 +449,13 @@ class MetaBatch:
         self.record = np.zeros((self.size, 2), dtype=np.int64) # [(image ID 0, # duration 0), (image ID 1, # duration 1), ...]
         self.labels = torch.zeros((self.size, ), dtype=torch.int64)
         assert self.size <= len(data_iter), "Size of MetaBatch shouldn't larger than data iterator's size"
+        self.orig_list = {}
         for idx in range(self.size):
             image, label = next(self.waitlist)
+            self.orig_list[self.global_step] = (image[0].clone(), label.item())
             self.record[idx, 0] = self.global_step
             self.global_step += 1
-            self.images[idx] = image[0]
+            self.images[idx] = image[0].clone()
             self.labels[idx] = label.item()
         self.fail_list = {}
         self.adv = {}
@@ -475,6 +477,7 @@ class MetaBatch:
                 self.adv[self.record[idx, 0]] = adv[idx].clone()
                 try:
                     image, label = next(self.waitlist)
+                    self.orig_list[self.global_step] = (image[0].clone(), label.item())
                     self.images[idx] = image[0].clone()
                     self.record[idx, 0] = self.global_step # update image ID
                     self.record[idx, -1] = 0 # reset counter
@@ -488,9 +491,9 @@ class MetaBatch:
         for k in [i for i in range(self.size) if i not in indices]:
             if self.record[k, 0] not in self.adv.keys() and self.record[k, -1] < self.max_iter+1: self.record[k, -1] += 1 
             if self.record[k, -1] == self.max_iter:
-                self.succ_list.append((self.images[k].clone(), self.labels[k].item()))
                 try:
                     image, label = next(self.waitlist)
+                    self.orig_list[self.global_step] = (image[0].clone(), label.item())
                     self.images[k] = image[0].clone()
                     self.labels[k] = label.item()
                     self.record[k, 0] = self.global_step # update image ID
@@ -499,11 +502,11 @@ class MetaBatch:
                 except StopIteration:
                     self.exhaust = True
                     continue
-                    
         print('metabatch record:\n {}'.format(self.record))
+        logging.info('metabatch record:\n {}'.format(self.record))
                     
     def get_succ_prob(self):
-        return len(self.succ_list) / (len(self.succ_list) + len(self.fail_list))
+        return 1 - len(self.fail_list))/len(self.orig_list)
 
     def display_stickers(self, n=20):
         for i, (label, sticker) in enumerate(self.adv.items()):
@@ -546,25 +549,27 @@ class MetaBatch:
 
     def display_successes(self, bagnet, idx2label, clip, a, b, n=20):
         label_list, topk_list = [], []
-        for i, elem in enumerate(self.succ_list):
-            image, label = elem
-            image = image[None].clone()
-            logits = bagnet(image.cuda())
-            if clip:
-                logits = clip(logits, a, b)
-            logits = torch.mean(logits, dim=(1, 2))
-            _, topk = torch.topk(logits, k=5, dim=1)
-            image = undo_imagenet_preprocess(image[0])
-            plt.imshow(convert2channel_last(image.cpu().numpy()))
-            plt.title('{} {}'.format(label, idx2label[label]))
-            plt.axis('off')
-            plt.show()
-            topk = topk[0].cpu().numpy()
-            print('top-5 prediction: {}'.format(topk))
-            label_list.append(label)
-            topk_list.append(topk)
-            if i == n-1:
-                break
+        for i, (key, value) in enumerate(self.orig_list):
+            if key not in self.adv.keys():
+                image, label = value
+                image = image[None].clone()
+                with torch.no_grad():
+                    logits = bagnet(image.cuda())
+                if clip:
+                    logits = clip(logits, a, b)
+                logits = torch.mean(logits, dim=(1, 2))
+                _, topk = torch.topk(logits, k=5, dim=1)
+                image = undo_imagenet_preprocess(image[0])
+                plt.imshow(convert2channel_last(image.cpu().numpy()))
+                plt.title('{} {}'.format(label, idx2label[label]))
+                plt.axis('off')
+                plt.show()
+                topk = topk[0].cpu().numpy()
+                print('top-5 prediction: {}'.format(topk))
+                label_list.append(label)
+                topk_list.append(topk)
+                if i == n-1:
+                    break
         label_list = np.array(label_list)
         topk_list = np.array(topk_list)
         return topk_list, label_list
@@ -587,6 +592,7 @@ def batch_upper_bound(model, metabatch, clip, a, b,
         for x in range(0, 224 - attack_size[0] + 1, stride):
             for y in range(0, 224 - attack_size[1] + 1, stride):
                 print('current location {}'.format((x, y)))
+                logging.info('current location {}'.format((x, y)))
                 metabatch.location = (x, y)
                 adv_images = metabatch.images.clone()
                 subimg = get_subimgs(adv_images, (x, y), attack_size)
@@ -613,6 +619,7 @@ def batch_upper_bound(model, metabatch, clip, a, b,
                     l, topk = labels.cpu().numpy(), topk.cpu().numpy()
                     mis_indices = [idx for idx in range(len(l)) if l[idx] not in topk[idx]]
                     print('misclassified indices: {}'.format(mis_indices))
+                    logging.info('misclassified indices: {}'.format(mis_indices))
                     metabatch.update(mis_indices, adv)
                 if len(metabatch.succ_list) + len(metabatch.fail_list) == len(metabatch.waitlist): # Early stop if already determine success or failure of all the images
                     earlystop = True
