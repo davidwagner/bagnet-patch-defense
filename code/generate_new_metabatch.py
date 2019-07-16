@@ -24,10 +24,9 @@ flags.DEFINE_float('a', 0.05, 'clipping parameter A')
 flags.DEFINE_float('b', -1, 'clipping parameter B')
 flags.DEFINE_float('eps', 5., 'range of perturbation')
 flags.DEFINE_integer('nb_iter', 40, 'number of iterations for PGD')
-flags.DEFINE_integer('stepsize', 0.5, 'stepsize of PGD')
+flags.DEFINE_float('stepsize', 0.5, 'stepsize of PGD')
 flags.DEFINE_integer('metabatch_size', 35, 'metabatch size')
 flags.DEFINE_string('output_root', './results', 'directory for storing results')
-flags.DEFINE_string('log_root', './log', 'directory for logging')
 FLAGS = flags.FLAGS
 
 ###################################
