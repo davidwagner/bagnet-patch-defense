@@ -506,7 +506,7 @@ class MetaBatch:
         logging.info('metabatch record:\n {}'.format(self.record))
                     
     def get_succ_prob(self):
-        return 1 - len(self.fail_list))/len(self.orig_list)
+        return 1 - len(self.fail_list) / len(self.orig_list)
 
     def display_stickers(self, n=20):
         for i, (label, sticker) in enumerate(self.adv.items()):
