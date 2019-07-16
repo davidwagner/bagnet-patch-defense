@@ -49,6 +49,7 @@ a, b = FLAGS.a, FLAGS.b
 eps, nb_iter, stepsize = FLAGS.eps, FLAGS.nb_iter, FLAGS.stepsize
 metabatch_size = FLAGS.metabatch_size
 """
+
 N = 50
 seed = 42
 attack_size = (20, 20)
@@ -66,7 +67,7 @@ FLAGS.output_root/
         [NAME].log
         dataset/
 """
-NAME = '{}-{}-{}-{}-{}-{}-{}-{}-{}-{}'.format(N, seed, attack_size, stride, "tanh_linear", a, b, eps, nb_iter, stepsize)
+NAME = '{}-{}-{}times{}-{}-{}-{}-{}-{}-{}-{}'.format(N, seed, attack_size[0], attack_size[1], stride, "tanh_linear", a, b, eps, nb_iter, stepsize)
 
 OUTPUT_PATH = os.path.join(output_root, NAME) 
 
