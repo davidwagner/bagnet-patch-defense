@@ -1,22 +1,22 @@
 import torch
 
-def clip_below(values, a):
+def clip_below(values, a=0, b=None):
     """Clip values below b
         Input:
         - values(torch tensor): values to be clipped
         Output: (torch tensor) clipped values
     """
-    thresh_below = torch.full_like(values, a)
+    thresh_below = torch.full_like(values, a, requires_grad=True)
     return torch.where(values >= a, values, thresh_below)
 
-def binarize(values, a):
+def binarize(values, a=0, b=None):
     """Set values below A to 0 and those above to 1
     Input:
     - values(torch tensor): values to be clipped
     Output: (torch tensor) clipped values
     """
-    all_ones = torch.ones_like(values)
-    all_zeros = torch.zeros_like(values)
+    all_ones = torch.ones_like(values, requires_grad=True)
+    all_zeros = torch.zeros_like(values, requires_grad=True)
     return torch.where(values >= a, all_ones, all_zeros)
 
 def clip_pm1(values, **kwargs):
@@ -25,7 +25,7 @@ def clip_pm1(values, **kwargs):
     - values(torch tensor): values to be clipped
     Output: (torch tensor) clipped values
     """
-    return torch.clamp_(values, -1., 1.)
+    return torch.clamp(values, -1., 1.)
 
 def clip_bias(values, b):
     """Clip values to [-1, 1]
@@ -34,7 +34,7 @@ def clip_bias(values, b):
     - b (float): intersection
     Output: (torch tensor) clipped values
     """
-    return torch.clamp_(values + b, -1, 1)
+    return torch.clamp(values + b, -1, 1)
 
 def clip_linear(values, a, b):
     """Clip values to [-1, 1]
@@ -44,10 +44,10 @@ def clip_linear(values, a, b):
     - b (float): intersection
     Output: (torch tensor) clipped values
     """
-    return torch.clamp_(values * a + b, -1, 1)
+    return torch.clamp(values * a + b, -1, 1)
 
 def sigmoid_linear(values, a, b):
-    """Clip values to [-1, 1]
+    """Clip values to [0, 1]
     Input:
     - values(torch tensor): values to be clipped
     - a (float): coefficient

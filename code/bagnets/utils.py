@@ -132,6 +132,10 @@ def pad_image(image, patchsize):
     return padded_image[None].astype(np.float32)
 
 def convert2channel_last(image):
+    """Convert the format of image to channel-last format
+    Input:
+    -image (numpy array): image, shape = (3, h, w)
+    """
     return image.transpose([1, 2, 0])
 
 def imagenet_preprocess(image):
@@ -141,33 +145,40 @@ def imagenet_preprocess(image):
     image /= np.array([0.229, 0.224, 0.225])[:, None, None]
     return image
 
-def extract_patches(image, patchsize):
+def extract_patches(image, patchsize, stride=1):
     patches = image.permute(0, 2, 3, 1)
-    patches = patches.unfold(1, patchsize, 1).unfold(2, patchsize, 1)
+    patches = patches.unfold(1, patchsize, stride).unfold(2, patchsize, stride)
     patches = patches.contiguous().view((-1, 3, patchsize, patchsize))
     return patches
 
-def bagnet_predict(model, images, k=1, return_class=True):
+def bagnet_predict(model, images, k=1, clip=None, a=1e-2, b=-0.78, return_class=True):
     """ Make top-K prediction on IMAGES by MODEL
     Inputs:
     - model: pytorch model. model for prediction
     - images: pytorch tensor. images to be predicted on
     - k: number of classes to return for each image (top-k most possible ones)
-    - return_class: If True, then return classes as prediction; otherwise, return probability of prediction classes
+    - clip (clipping): clipping function
+    - a, b (double): clipping parameters
+    - return_class: If True, then return classes as prediction; otherwise, return logits and probability of prediction classes
     Return:
     - indices.cpu().numpy(): numpy array at CPU. prediction K classes
-    - values.cpu().numpy(): numpy array at CPU. top-K prediction probability
+    - l.cpu().numpy(): numpy array at CPU. top-K prediction logits
+    - p.cpu().numpy(): numpy array at CPU. top-K prediction probability
     """
     with torch.no_grad():
         logits = model(images)
+        if clip:
+            assert not model.avg_pool, 'Bagnet should apply clipping before taking average.'
+            logits = clip(logits, a, b)
+            logits = torch.mean(logits, dim=(1, 2))
         p = torch.nn.Softmax(dim=1)(logits)
-        values, indices = torch.topk(p, k, dim=1)
+        p, indices = torch.topk(p, k, dim=1)
+        l, _ = torch.topk(logits, k, dim=1)
         if return_class:
             return indices.cpu().numpy()
         else:
-            return values.cpu().numpy()
+            return l.cpu().numpy(), p.cpu().numpy()
 
-#TODO: need to be updated
 def compare_heatmap(bagnet, patches, gt, target, original, batch_size=1000):
     with torch.no_grad():
         gt_logits_list, target_logits_list = [], []
@@ -611,28 +622,7 @@ def validate(val_loader, model, device, k=5, clip=None, **kwargs):
 # Helper functions from 2019-5-31 notebook
 ####################################################
 
-def bagnet_patch_predict(bagnet, images, k=1, return_class=True, clip=None, **kwargs):
-    """bagnet makes top-k predictions based on patches
-    Input:
-    - bagnet (pytorch model): bagnet without average pooling
-    - images (pytorch tensor): a batch of images
-    - k (int): top-k prediction
-    - return_class (bool): if true, return class index; otherwise return class evidence
-    - clip (function): if not None, then apply clipping on logits
-    Output: (numpy array): prediction
-    """
-    with torch.no_grad():
-        logits = bagnet(images)
-    if clip:
-        logits = clip(logits, **kwargs)
-    avg_logits = torch.mean(logits, dim=(1, 2))
-    values, indices = torch.topk(avg_logits, k, dim=1)
-    if return_class:
-        return indices.cpu().numpy()
-    else:
-        return values.cpu().numpy()
-
-def get_heatmap(bagnet, images, targets):
+def get_low_res_heatmap(bagnet, images, targets, clip=None, **kwargs):
     """Generates low-resolution heatmap for Bagnet-33
     Input:
     - bagnet (pytorch): Bagnet without average pooling
@@ -643,6 +633,8 @@ def get_heatmap(bagnet, images, targets):
     with torch.no_grad():
         patch_logits = bagnet(images)
     patch_logits = patch_logits.permute([0, 3, 1, 2]).cpu().numpy()
+    if clip:
+        patch_logits = clip(patch_logits, **kwargs)
     N = images.shape[0]
     heatmaps = np.zeros((N, 224, 224))
     for z in range(N):
@@ -650,7 +642,65 @@ def get_heatmap(bagnet, images, targets):
         for p, i in enumerate(range(33, 224, 8)):
             for q, j in enumerate(range(33, 224, 8)):
                 patch = np.full((33, 33), patch_target_logits[p, q])
-                heatmaps[z, i-33:i, j-33:j] = patch
+                heatmaps[z, i-33:i, j-33:j] += patch
     return heatmaps
 
 ######################################################
+
+######################################################
+# Helper functions from 2019-6-15 notebook
+######################################################
+def generate_high_res_heatmap(model, patches, target, batchsize=1000, clip=None, **kwargs):
+    with torch.no_grad():
+        logits_list = []
+        for batch_patches in torch.split(patches, batchsize):
+            logits = model(batch_patches)
+            logits = logits[:, target]
+            if clip:
+                logits = clip(logits, **kwargs)
+            logits_list.append(logits.data.cpu().numpy().copy())
+        logits = np.hstack(logits_list)
+        return logits.reshape((224, 224))
+
+def bagnet_patch_predict(bagnet, patches, batch_size=1000, k=1, return_class=True):
+    with torch.no_grad():
+        cum_logits = torch.zeros(1000).cuda() # ImageNet has 1000 classes
+        N = patches.shape[0]
+        for batch_patches in torch.split(patches, batch_size):
+            logits = bagnet(batch_patches)
+            sum_logits = torch.sum(logits, dim=0)
+            cum_logits += sum_logits
+        p = F.softmax(cum_logits/N, dim=0)
+        values, indices = torch.topk(p, k, dim=1)
+        if return_class:
+            return indices.cpu().numpy()
+        else:
+            return values.cpu().numpy()
+
+#####################################################
+
+#####################################################
+# Helper functions from 2019-6-21 notebook
+#####################################################
+def pad_tensor_image(image, patchsize):
+    _, c, x, y = image.shape
+    padded_image = torch.zeros((c, x + patchsize - 1, y + patchsize - 1))
+    padded_image[:, (patchsize-1)//2 : (patchsize-1)//2 + x, (patchsize-1)//2 : (patchsize-1)//2 + y] = image[0]
+    return padded_image[None].float()
+#####################################################
+
+#####################################################
+# Helper function from 2019-6-22 notebook
+#####################################################
+def undo_imagenet_preprocess(image):
+    """ Undo imagenet preprocessing
+    Input:
+    - image (pytorch tensor): image after imagenet preprocessing in CPU, shape = (3, 224, 224)
+    Output:
+    - undo_image (pytorch tensor): pixel values in [0, 1]
+    """
+    mean = torch.Tensor([0.485, 0.456, 0.406]).view((3, 1, 1))
+    std = torch.Tensor([0.229, 0.224, 0.225]).view((3, 1, 1))
+    undo_image = image * std
+    undo_image += mean
+    return undo_image
