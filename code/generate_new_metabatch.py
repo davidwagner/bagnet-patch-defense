@@ -26,7 +26,7 @@ flags.DEFINE_float('eps', 5., 'range of perturbation')
 flags.DEFINE_integer('nb_iter', 40, 'number of iterations for PGD')
 flags.DEFINE_float('stepsize', 0.5, 'stepsize of PGD')
 flags.DEFINE_integer('metabatch_size', 35, 'metabatch size')
-flags.DEFINE_string('output_root', './results', 'directory for storing results')
+flags.DEFINE_string('output_root', '/mnt/data/results/', 'directory for storing results')
 
 def main(argv):
     """
@@ -91,7 +91,7 @@ def main(argv):
                    "binarize":binarize,
                    "None": None}
     
-    clip_fn = clip_fn_dic[FLAGS.flip_fn]
+    clip_fn = clip_fn_dic[FLAGS.clip_fn]
 
     bagnet33 = bagnets.pytorch.bagnet33(pretrained=True, avg_pool=False).to(device)
     bagnet33.eval()
@@ -114,8 +114,8 @@ def main(argv):
             topk, label = topk.cpu().numpy()[0], label.numpy()[0]
             if label in topk:
                 count += 1
-        print("Accuracy before attack: {}".format(count / N))
-        logging.info("Accuracy before attack: {}".format(count / N))
+        print("Accuracy before attack: {}".format(count / FLAGS.N))
+        logging.info("Accuracy before attack: {}".format(count / FLAGS.N))
 
     # instanciate metabatch
     data_iter = iter(val_subset_loader)
@@ -125,7 +125,7 @@ def main(argv):
     succ_prob = batch_upper_bound(bagnet33, metabatch, 
                                   clip_fn, FLAGS.a, FLAGS.b,
                                   attack_size=FLAGS.attack_size, eps=FLAGS.eps, nb_iter=FLAGS.nb_iter, stepsize=FLAGS.stepsize, 
-                                  FLAGS.stride=stride, k=5)
+                                  stride=FLAGS.stride, k=5)
     tac = time.time()
     print("Success probability: {}, Time: {:.3f}s or {:.3f}hr(s)".format(succ_prob, tac - tic, (tac-tic)/3600))
     logging.info("Success probability: {}, Time: {:.3f}s or {:.3f}hr(s)".format(succ_prob, tac - tic, (tac-tic)/3600))
@@ -160,5 +160,5 @@ def main(argv):
     with open(os.path.join(OUTPUT_PATH, NAME+'.mtb'), 'wb') as file:
         pickle.dump(metabatch, file)
 
-if __name __ == "__main__":
+if __name__ == "__main__":
     app.run(main)
