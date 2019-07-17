@@ -441,6 +441,7 @@ class AdverTorchWrapper(nn.Module):
 
 class MetaBatch:
     def __init__(self, data_iter, size, max_iter):
+        self.clean_acc = 1
         self.global_step = 0
         self.waitlist = data_iter # images waiting for attack, pytorch data iterator, batch size=1, in CPU
         self.exhaust = False

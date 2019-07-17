@@ -25,7 +25,7 @@ flags.DEFINE_float('b', -1, 'clipping parameter B')
 flags.DEFINE_float('eps', 5., 'range of perturbation')
 flags.DEFINE_integer('nb_iter', 40, 'number of iterations for PGD')
 flags.DEFINE_float('stepsize', 0.5, 'stepsize of PGD')
-flags.DEFINE_integer('metabatch_size', 35, 'metabatch size')
+flags.DEFINE_integer('metabatch_size', 10, 'metabatch size')
 flags.DEFINE_string('output_root', '/mnt/data/results/', 'directory for storing results')
 
 def main(argv):
@@ -114,12 +114,14 @@ def main(argv):
             topk, label = topk.cpu().numpy()[0], label.numpy()[0]
             if label in topk:
                 count += 1
-        print("Accuracy before attack: {}".format(count / FLAGS.N))
-        logging.info("Accuracy before attack: {}".format(count / FLAGS.N))
+        clean_acc = count / FLAGS.N
+        print("Accuracy before attack: {}".format(clean_acc))
+        logging.info("Accuracy before attack: {}".format(clean_acc))
 
     # instanciate metabatch
     data_iter = iter(val_subset_loader)
     metabatch = MetaBatch(data_iter, FLAGS.metabatch_size, max_iter)
+    metabatch.clean_acc = clean_acc
 
     tic = time.time()
     succ_prob = batch_upper_bound(bagnet33, metabatch, 
