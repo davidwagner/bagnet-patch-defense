@@ -2,8 +2,6 @@ from advertorch.attacks import LinfPGDAttack
 import bagnets
 from bagnets.clipping import*
 from bagnets.security import*
-import foolbox
-from foolbox.utils import samples
 import torch
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
@@ -14,11 +12,9 @@ import pickle
 import logging
 from absl import app, flags
 from time import gmtime, strftime
-import sys
 import json
 
 FLAGS = flags.FLAGS
-FLAGS(sys.argv)
 flags.DEFINE_integer('N', 50, 'number of images')
 flags.DEFINE_integer('seed', 42, 'random seed for sampling images from ImageNet')
 flags.DEFINE_multi_integer('attack_size', [20, 20], 'size of sticker')
@@ -32,99 +28,78 @@ flags.DEFINE_float('stepsize', 0.5, 'stepsize of PGD')
 flags.DEFINE_integer('metabatch_size', 35, 'metabatch size')
 flags.DEFINE_string('output_root', './results', 'directory for storing results')
 
-###################################
-# Configuration
-###################################
-clip_fn_dic = {"tanh_linear":tanh_linear, 
-               "binarize":binarize}
+def main(argv):
+    """
+    FLAGS.output_root/
+        [NAME]/
+            [NAME].mtb
+            [NAME].log
+            dataset/
+    """
+    NAME = '{}-{}-{}x{}-{}-{}-{}-{}-{}-{}-{}'.format(FLAGS.N, FLAGS.seed, FLAGS.attack_size[0], FLAGS.attack_size[1], FLAGS.stride, FLAGS.clip_fn, FLAGS.a, FLAGS.b, FLAGS.eps, FLAGS.nb_iter, FLAGS.stepsize)
+    OUTPUT_PATH = os.path.join(FLAGS.output_root, NAME)
 
-clip_fn = clip_fn_dic["tanh_linear"]
+    if not os.path.exists(OUTPUT_PATH):
+                os.mkdir(OUTPUT_PATH)
+    if not os.path.exists(os.path.join(OUTPUT_PATH, "dataset")):
+                os.mkdir(os.path.join(OUTPUT_PATH, "dataset"))
 
-"""
-N = FLAGS.N
-seed = FLAGS.seed
-attack_size = FLAGS.attack_size
-stride = FLAGS.stride
-a, b = FLAGS.a, FLAGS.b
-eps, nb_iter, stepsize = FLAGS.eps, FLAGS.nb_iter, FLAGS.stepsize
-metabatch_size = FLAGS.metabatch_size
-"""
+    LOG_PATH = os.path.join(OUTPUT_PATH, NAME+'.log')
+    print("log to {}".format(LOG_PATH))
 
-N = 50
-seed = 42
-attack_size = (20, 20)
-stride = 20
-a, b = 0.05, -1
-eps, nb_iter, stepsize = 5., 40, 0.5
-metabatch_size = 10
+    logger = logging.basicConfig(filename=LOG_PATH, level=logging.INFO)
+    logging.info(strftime("%Y-%m-%d %H:%M:%S", gmtime()))
+    logging.info("Setting:\n N: {}, seed: {}, attack_size: {}x{}, stride: {}, clip_fn: {}, a: {}, b: {}, eps: {}, nb_iter: {}, stepsize: {}".format(FLAGS.N, FLAGS.seed, FLAGS.attack_size[0], FLAGS.attack_size[1], FLAGS.stride, FLAGS.clip_fn, FLAGS.a, FLAGS.b, FLAGS.eps, FLAGS.nb_iter, FLAGS.stepsize))
+    ###################################
+    # Model and data preparation
+    ###################################
 
-output_root = "/mnt/data/results"
-# experiment name
-"""
-FLAGS.output_root/
-    [NAME]/
-        [NAME].mtb
-        [NAME].log
-        dataset/
-"""
-NAME = '{}-{}-{}x{}-{}-{}-{}-{}-{}-{}-{}'.format(N, seed, attack_size[0], attack_size[1], stride, "tanh_linear", a, b, eps, nb_iter, stepsize)
-
-OUTPUT_PATH = os.path.join(output_root, NAME) 
-
-if not os.path.exists(OUTPUT_PATH):
-            os.mkdir(OUTPUT_PATH)
-if not os.path.exists(os.path.join(OUTPUT_PATH, "dataset")):
-            os.mkdir(os.path.join(OUTPUT_PATH, "dataset"))
-
-LOG_PATH = os.path.join(OUTPUT_PATH, NAME+'.log')
-print("log to {}".format(LOG_PATH))
-
-logger = logging.basicConfig(filename=LOG_PATH, level=logging.INFO)
-logging.info(strftime("%Y-%m-%d %H:%M:%S", gmtime()))
-logging.info("N: {}, seed: {}, attack_size: {}, stride: {}, clip_fn: {}, a: {}, b: {}, eps: {}, nb_iter: {}, stepsize: {}".format(N, seed, attack_size, stride, "tanh_linear", a, b, eps, nb_iter, stepsize))
-###################################
-# Model and data preparation
-###################################
-
-# GPU
-use_cuda = torch.cuda.is_available()
-device = torch.device("cuda:0" if use_cuda else "cpu")
-if use_cuda:
-    print("GPU: {}".format(torch.cuda.get_device_name(0)))
-    logging.info("GPU: {}".format(torch.cuda.get_device_name(0)))
-else:
-    print(device)
-    logging.info(device)
-
-# idx2class dictionary
-with open('/mnt/data/imagenet/imagenet_class_index.json', mode='r') as file:
-    class_idx = json.load(file)
-idx2label = [class_idx[str(k)][1] for k in range(len(class_idx))]
-
-# ImageNet validation set
-normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                 std=[0.229, 0.224, 0.225])
-imagenet_transform = transforms.Compose([transforms.Resize(256), 
-                                         transforms.CenterCrop(224), 
-                                         transforms.ToTensor(), 
-                                         normalize])
-imagenet_val = datasets.ImageNet('/mnt/data/imagenet/', split='val', download=False, 
+    # GPU
+    use_cuda = torch.cuda.is_available()
+    device = torch.device("cuda:0" if use_cuda else "cpu")
+    if use_cuda:
+        print("GPU: {}".format(torch.cuda.get_device_name(0)))
+        logging.info("GPU: {}".format(torch.cuda.get_device_name(0)))
+    else:
+        print(device)
+        logging.info(device)
+    
+    # idx2class dictionary
+    with open('/mnt/data/imagenet/imagenet_class_index.json', mode='r') as file:
+        class_idx = json.load(file)
+    idx2label = [class_idx[str(k)][1] for k in range(len(class_idx))]
+    
+    # ImageNet validation set
+    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                     std=[0.229, 0.224, 0.225])
+    imagenet_transform = transforms.Compose([transforms.Resize(256), 
+                                             transforms.CenterCrop(224), 
+                                             transforms.ToTensor(), 
+                                             normalize])
+    imagenet_val = datasets.ImageNet('/mnt/data/imagenet/', split='val', download=False, 
                                          transform=imagenet_transform)
 
-np.random.seed(seed)
-val_subset_indices = np.random.choice(np.arange(50000), size=N, replace=False)
-val_subset_loader = torch.utils.data.DataLoader(imagenet_val, 
-                                                batch_size=1,
-                                                num_workers=4,
-                                                sampler=torch.utils.data.sampler.SubsetRandomSampler(val_subset_indices))
+    np.random.seed(FLAGS.seed)
+    val_subset_indices = np.random.choice(np.arange(50000), size=FLAGS.N, replace=False)
+    val_subset_loader = torch.utils.data.DataLoader(imagenet_val, 
+                                                    batch_size=1,
+                                                    num_workers=4,
+                                                    sampler=torch.utils.data.sampler.SubsetRandomSampler(val_subset_indices))
 
-# load pretrained model
-bagnet33 = bagnets.pytorch.bagnet33(pretrained=True, avg_pool=False).to(device)
-bagnet33.eval()
-print()
+    # load pretrained model
+    clip_fn_dic = {"tanh_linear":tanh_linear, 
+                   "binarize":binarize,
+                   "None": None}
+    
+    clip_fn = clip_fn_dic[FLAGS.flip_fn]
 
-if __name__ == "__main__":
-    max_iter = ((224 - attack_size[0]) // stride + 1) * ((224 - attack_size[1]) // stride + 1)
+    bagnet33 = bagnets.pytorch.bagnet33(pretrained=True, avg_pool=False).to(device)
+    bagnet33.eval()
+
+    #####################################
+    # Start attacking
+    #####################################
+    max_iter = ((224 - FLAGS.attack_size[0]) // FLAGS.stride + 1) * ((224 - FLAGS.attack_size[1]) // FLAGS.stride + 1)
     print('max iter: {}'.format(max_iter))
 
     with torch.no_grad():
@@ -133,7 +108,7 @@ if __name__ == "__main__":
             image = image.to(device)
             logit = bagnet33(image)
             if clip_fn:
-                logit = clip_fn(logit, a, b)
+                logit = clip_fn(logit, FLAGS.a, FLAGS.b)
             logit = torch.mean(logit, dim=(1, 2))
             _, topk = torch.topk(logit, k=5, dim=1)
             topk, label = topk.cpu().numpy()[0], label.numpy()[0]
@@ -144,13 +119,13 @@ if __name__ == "__main__":
 
     # instanciate metabatch
     data_iter = iter(val_subset_loader)
-    metabatch = MetaBatch(data_iter, metabatch_size, max_iter)
+    metabatch = MetaBatch(data_iter, FLAGS.metabatch_size, max_iter)
 
     tic = time.time()
     succ_prob = batch_upper_bound(bagnet33, metabatch, 
-                                  clip_fn, a, b,
-                                  attack_size=attack_size, eps=eps, nb_iter=nb_iter, stepsize=stepsize, 
-                                  stride=stride, k=5)
+                                  clip_fn, FLAGS.a, FLAGS.b,
+                                  attack_size=FLAGS.attack_size, eps=FLAGS.eps, nb_iter=FLAGS.nb_iter, stepsize=FLAGS.stepsize, 
+                                  FLAGS.stride=stride, k=5)
     tac = time.time()
     print("Success probability: {}, Time: {:.3f}s or {:.3f}hr(s)".format(succ_prob, tac - tic, (tac-tic)/3600))
     logging.info("Success probability: {}, Time: {:.3f}s or {:.3f}hr(s)".format(succ_prob, tac - tic, (tac-tic)/3600))
@@ -167,7 +142,7 @@ if __name__ == "__main__":
         with torch.no_grad():
             logits = bagnet33(image.to(device))
         if clip_fn:
-            logits = clip_fn(logits, a, b)
+            logits = clip_fn(logits, FLAGS.a, FLAGS.b)
         logits = torch.mean(logits, dim=(1, 2))
         _, topk = torch.topk(logits, k=5, dim=1)
         image = undo_imagenet_preprocess(image[0]).cpu().numpy() # undo preprocessing
@@ -184,3 +159,6 @@ if __name__ == "__main__":
     metabatch.waitlist = None
     with open(os.path.join(OUTPUT_PATH, NAME+'.mtb'), 'wb') as file:
         pickle.dump(metabatch, file)
+
+if __name __ == "__main__":
+    app.run(main)
