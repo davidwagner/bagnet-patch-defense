@@ -550,7 +550,7 @@ class MetaBatch:
 
     def display_successes(self, bagnet, idx2label, clip, a, b, n=20):
         label_list, topk_list = [], []
-        for i, (key, value) in enumerate(self.orig_list):
+        for i, (key, value) in enumerate(self.orig_list.items()):
             if key not in self.adv.keys():
                 image, label = value
                 image = image[None].clone()

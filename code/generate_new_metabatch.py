@@ -12,7 +12,7 @@ import time
 import os
 import pickle
 import logging
-from absl import flags
+from absl import app, flags
 from time import gmtime, strftime
 import sys
 import json
@@ -56,7 +56,7 @@ attack_size = (20, 20)
 stride = 20
 a, b = 0.05, -1
 eps, nb_iter, stepsize = 5., 40, 0.5
-metabatch_size = 30
+metabatch_size = 20
 
 output_root = "/mnt/data/results"
 # experiment name
@@ -67,7 +67,7 @@ FLAGS.output_root/
         [NAME].log
         dataset/
 """
-NAME = '{}-{}-{}times{}-{}-{}-{}-{}-{}-{}-{}'.format(N, seed, attack_size[0], attack_size[1], stride, "tanh_linear", a, b, eps, nb_iter, stepsize)
+NAME = '{}-{}-{}x{}-{}-{}-{}-{}-{}-{}-{}'.format(N, seed, attack_size[0], attack_size[1], stride, "tanh_linear", a, b, eps, nb_iter, stepsize)
 
 OUTPUT_PATH = os.path.join(output_root, NAME) 
 
@@ -77,11 +77,11 @@ if not os.path.exists(os.path.join(OUTPUT_PATH, "dataset")):
             os.mkdir(os.path.join(OUTPUT_PATH, "dataset"))
 
 LOG_PATH = os.path.join(OUTPUT_PATH, NAME+'.log')
+print("log to {}".format(LOG_PATH))
 
-logger = logging.getLogger(LOG_PATH)
-logger.setLevel(logging.INFO)
+logger = logging.basicConfig(filename=LOG_PATH, level=logging.INFO)
 logging.info(strftime("%Y-%m-%d %H:%M:%S", gmtime()))
-logging.info("N: {}, seed: {}, clip_fn: {}, a: {}, b: {}, eps: {}, nb_iter: {}, stepsize: {}".format(FLAGS.N, FLAGS.seed, FLAGS.clip_fn, FLAGS.a, FLAGS.b, FLAGS.eps, FLAGS.nb_iter, FLAGS.stepsize))
+logging.info("N: {}, seed: {}, attack_size: {}, stride: {}, clip_fn: {}, a: {}, b: {}, eps: {}, nb_iter: {}, stepsize: {}".format(N, seed, attack_size, stride, "tanh_linear", a, b, eps, nb_iter, stepsize))
 ###################################
 # Model and data preparation
 ###################################
