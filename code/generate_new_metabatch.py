@@ -56,7 +56,7 @@ attack_size = (20, 20)
 stride = 20
 a, b = 0.05, -1
 eps, nb_iter, stepsize = 5., 40, 0.5
-metabatch_size = 20
+metabatch_size = 10
 
 output_root = "/mnt/data/results"
 # experiment name
