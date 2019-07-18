@@ -88,6 +88,7 @@ def main(argv):
 
     # load pretrained model
     clip_fn_dic = {"tanh_linear":tanh_linear, 
+                   "sigmoid_linear":sigmoid_linear,
                    "binarize":binarize,
                    "None": None}
     
