@@ -439,6 +439,24 @@ class AdverTorchWrapper(nn.Module):
             return self.clip(patch_logits, **kwargs)
         return patch_logits
 
+class UndefendedAdverTorchWrapper(nn.Module):
+    mean = torch.Tensor([0.485, 0.456, 0.406]).view((3, 1, 1))
+    std = torch.Tensor([0.229, 0.224, 0.225]).view((3, 1, 1))
+
+    def __init__(self, model, img, size, loc):
+        super(UndefendedAdverTorchWrapper, self).__init__()
+        self.batch_size = img.shape[0]
+        self.model = model
+        self.x1, self.y1 = loc
+        self.x2, self.y2 = self.x1 + size[0], self.y1 + size[1]
+        self.img = img.contiguous().cuda(async=False)
+
+    def forward(self, subimg):
+        img = self.img.clone()
+        img[:, :, self.x1:self.x2, self.y1:self.y2] = subimg
+        logits = self.model(img)
+        return logits
+
 class MetaBatch:
     def __init__(self, data_iter, size, max_iter):
         self.clean_acc = 1
@@ -575,6 +593,56 @@ class MetaBatch:
         label_list = np.array(label_list)
         topk_list = np.array(topk_list)
         return topk_list, label_list
+
+def undefended_batch_upper_bound(model, metabatch, 
+                      attack_size, stride, k=5,
+                      attack_alg=LinfPGDAttack, eps=5., nb_iter=40, stepsize=0.5, rand_init=False):
+    """ 
+    Input:
+    - model (pytorch model): bagnet model without avgerage pooling
+    - images (pytorch tensor): a batch of preprocessed images, same context as model's
+    - labels (pytorch tensor): image labels, same context as model's
+    - clip (python function): clipping function
+    - a, b (float): clipping parameters
+    Output:
+    - succ_prob (float):
+    """
+    earlystop = False
+    while not earlystop:
+        for x in range(0, 224 - attack_size[0] + 1, stride):
+            for y in range(0, 224 - attack_size[1] + 1, stride):
+                print('current location {}'.format((x, y)))
+                logging.info('current location {}'.format((x, y)))
+                metabatch.location = (x, y)
+                adv_images = metabatch.images.clone()
+                subimg = get_subimgs(adv_images, (x, y), attack_size)
+                subimg = subimg.cuda()
+                labels = metabatch.labels.cuda()
+                adver_model = UndefendedAdverTorchWrapper(model, adv_images, 
+                                                attack_size, (x, y)).cuda()
+                adver_model.eval()
+                adversary = attack_alg(adver_model, loss_fn=nn.CrossEntropyLoss(reduction="sum"), eps=eps,
+                              	       nb_iter=nb_iter, eps_iter=stepsize, rand_init=rand_init, 
+				       clip_min=-1.8044, clip_max=2.2489, # only for ImageNet data set.
+                                       targeted=False)
+                adv = adversary.perturb(subimg, labels).cpu()
+                # apply stickers to image
+                adv_images[:, :, adver_model.x1:adver_model.x2, adver_model.y1:adver_model.y2] = adv
+                # evaluate attack
+                with torch.no_grad():
+                    logits = model(adv_images.cuda())
+                    _, topk = torch.topk(logits, k=k, dim=1)
+                    l, topk = labels.cpu().numpy(), topk.cpu().numpy()
+                    mis_indices = [idx for idx in range(len(l)) if l[idx] not in topk[idx]]
+                    print('misclassified indices: {}'.format(mis_indices))
+                    logging.info('misclassified indices: {}'.format(mis_indices))
+                    metabatch.update(mis_indices, adv)
+                if len(metabatch.succ_list) + len(metabatch.fail_list) == len(metabatch.waitlist): # Early stop if already determine success or failure of all the images
+                    earlystop = True
+                    break
+            if earlystop:
+                break
+    return metabatch.get_succ_prob()
 
 def batch_upper_bound(model, metabatch, clip, a, b, 
                       attack_size, stride, k=5,
