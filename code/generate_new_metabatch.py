@@ -51,7 +51,7 @@ def main(argv):
 
     logger = logging.basicConfig(filename=LOG_PATH, level=logging.INFO)
     logging.info(strftime("%Y-%m-%d %H:%M:%S", gmtime()))
-    logging.info("Setting:\n N: {}, seed: {}, attack_size: {}x{}, stride: {}, clip_fn: {}, a: {}, b: {}, eps: {}, nb_iter: {}, stepsize: {}".format(FLAGS.N, FLAGS.seed, FLAGS.attack_size[0], FLAGS.attack_size[1], FLAGS.stride, FLAGS.clip_fn, FLAGS.a, FLAGS.b, FLAGS.eps, FLAGS.nb_iter, FLAGS.stepsize))
+    logging.info("Setting:\n model: {}, N: {}, seed: {}, attack_size: {}x{}, stride: {}, clip_fn: {}, a: {}, b: {}, eps: {}, nb_iter: {}, stepsize: {}".format(FLAGS.model, FLAGS.N, FLAGS.seed, FLAGS.attack_size[0], FLAGS.attack_size[1], FLAGS.stride, FLAGS.clip_fn, FLAGS.a, FLAGS.b, FLAGS.eps, FLAGS.nb_iter, FLAGS.stepsize))
     ###################################
     # Model and data preparation
     ###################################
@@ -95,6 +95,7 @@ def main(argv):
 
     clip_fn = clip_fn_dic[FLAGS.clip_fn]
     model = model_dic[FLAGS.model]
+    model = model.to(device)
     model.eval()
 
     #####################################
