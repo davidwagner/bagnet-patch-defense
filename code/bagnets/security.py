@@ -440,9 +440,6 @@ class AdverTorchWrapper(nn.Module):
         return patch_logits
 
 class UndefendedAdverTorchWrapper(nn.Module):
-    mean = torch.Tensor([0.485, 0.456, 0.406]).view((3, 1, 1))
-    std = torch.Tensor([0.229, 0.224, 0.225]).view((3, 1, 1))
-
     def __init__(self, model, img, size, loc):
         super(UndefendedAdverTorchWrapper, self).__init__()
         self.batch_size = img.shape[0]

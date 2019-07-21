@@ -25,7 +25,8 @@ flags.DEFINE_float('eps', 5., 'range of perturbation')
 flags.DEFINE_integer('nb_iter', 40, 'number of iterations for PGD')
 flags.DEFINE_float('stepsize', 0.5, 'stepsize of PGD')
 flags.DEFINE_integer('metabatch_size', 10, 'metabatch size')
-flags.DEFINE_string('output_root', '/home/yuanbenson1772/data/results/', 'directory for storing results')
+flags.DEFINE_string('data_path', '/mnt/data/imagenet', 'data directory')
+flags.DEFINE_string('output_root', '/mnt/data/results/', 'directory for storing results')
 
 def main(argv):
     """
@@ -71,7 +72,7 @@ def main(argv):
                                              transforms.CenterCrop(224),
                                              transforms.ToTensor(),
                                              normalize])
-    imagenet_val = datasets.ImageNet('~/data/imagenet/', split='val', download=False,
+    imagenet_val = datasets.ImageNet(FLAGS.data_path, split='val', download=False,
                                          transform=imagenet_transform)
 
     np.random.seed(FLAGS.seed)
