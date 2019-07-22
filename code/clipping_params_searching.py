@@ -19,10 +19,11 @@ flags.DEFINE_integer('N', 50, 'number of images')
 flags.DEFINE_integer('seed', 42, 'random seed for sampling images from ImageNet')
 flags.DEFINE_multi_integer('attack_size', [20, 20], 'size of sticker')
 flags.DEFINE_integer('stride', 20, 'stride of sticker')
+flags.DEFINE_integer('batchsize', 128, 'batch size')
 flags.DEFINE_string('model', 'bagnet33', 'model being evaluated')
 flags.DEFINE_string('clip_fn', 'tanh_linear', 'clipping function')
 flags.DEFINE_string('param', 'a', 'clip(a*x + b). Which parameter are going to be tested')
-flags.DEFINE_multi_integer('param_list', None, 'list of parameters to be tested')
+flags.DEFINE_multi_float('param_list', None, 'list of parameters to be tested')
 flags.DEFINE_float('fixed_param', None, 'the other fixed parameter')
 flags.DEFINE_string('data_path', '/mnt/data/imagenet', 'directory where data are stored')
 flags.DEFINE_string('output_root', '/mnt/data/clipping_params_searching/', 'directory for storing results')
@@ -73,7 +74,7 @@ def main(argv):
     np.random.seed(FLAGS.seed)
     val_subset_indices = np.random.choice(np.arange(50000), size=FLAGS.N, replace=False)
     val_subset_loader = torch.utils.data.DataLoader(imagenet_val, 
-                                                    batch_size=1,
+                                                    batch_size=FLAGS.batchsize,
                                                     num_workers=4,
                                                     sampler=torch.utils.data.sampler.SubsetRandomSampler(val_subset_indices))
 
