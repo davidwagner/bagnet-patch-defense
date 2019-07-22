@@ -29,9 +29,9 @@
 #sudo python3 generate_new_metabatch.py --seed=999 --nb_iter=120 --metabatch_size=10
 
 #####################################################################
-# 500 images canonical BagNet-9, -17
+# 500 images canonical BagNet-9, -17 (Finished)
 #####################################################################
 #sudo python3 generate_generic_new_metabatch.py -N=500 -seed=42 -metabatch_size=20 -model=bagnet9
 #sudo python3 generate_generic_new_metabatch.py -N=500 -seed=42 -metabatch_size=20 -model=bagnet17
-sudo python3 generate_generic_new_metabatch.py -N=500 -seed=88 -metabatch_size=5 -model=bagnet17
-sudo python3 generate_generic_new_metabatch.py -N=500 -seed=88 -metabatch_size=5 -model=bagnet9
+#sudo python3 generate_generic_new_metabatch.py -N=500 -seed=88 -metabatch_size=10 -model=bagnet17
+#sudo python3 generate_generic_new_metabatch.py -N=500 -seed=88 -metabatch_size=10 -model=bagnet9

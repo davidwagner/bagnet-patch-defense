@@ -6,6 +6,7 @@ import time
 import torch
 import torch.nn as nn
 import math
+import logging
 from torch.utils import model_zoo
 
 model_urls = {
@@ -610,11 +611,14 @@ def validate(val_loader, model, device, k=5, clip=None, **kwargs):
             acc = sum([target[i] in y_hat[i] for i in range(target.size)]) / target.size
             cum_acc += acc
             val_time += tac-tic
-
-            print('Iteration {}, validation accuracy: {:.3f}, time: {}s'.format(i, acc, tac-tic))
+            msg = 'Iteration {}, validation accuracy: {:.3f}, time: {}s'.format(i, acc, tac-tic)
+            print(msg)
+            logging.info(msg)
     end = time.time()
     val_acc = cum_acc / total_iter
-    print('Validation accuracy: {:.3f}, validation time: {:.2f}, total time: {:.2f}s'.format(val_acc, val_time, end-start))
+    msg = 'Validation accuracy: {:.3f}, validation time: {:.2f}, total time: {:.2f}s'.format(val_acc, val_time, end-start)
+    print(msg)
+    logging.info(msg)
     return val_acc
 ####################################################
 

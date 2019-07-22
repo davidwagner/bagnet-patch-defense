@@ -4,8 +4,10 @@ import os
 import logging
 
 FLAGS = flags.FLAGS
-flags.DEFINE_multi_integer("seed_list", [42, 88, 1234, 666, 777, 999], 'list of random seeds')
+flags.DEFINE_integer('N', 50, 'number of samples')
+flags.DEFINE_multi_integer('seed_list', [42, 88, 1234, 666, 777, 999], 'list of random seeds')
 flags.DEFINE_string('log_root', '/mnt/data/results/', 'directory for storing results')
+
 def main(argv):
     NAME = "{}".format(FLAGS.seed_list)
     LOG_PATH = os.path.join(FLAGS.log_root, NAME+'.log')
