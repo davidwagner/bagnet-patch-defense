@@ -731,7 +731,7 @@ def get_targeted_classes(model, images, clip, a, b, k=5, case='avg'):
 
 def targeted_batch_upper_bound(model, metabatch, clip, a, b, 
                                attack_size, stride, k=5, targeted=True, case='avg',
-                               attack_alg=LinfPGDAttack, eps=5., nb_iter=40, stepsize=0.5, rand_init=False):
+                               attack_alg=LinfPGDAttack, eps=5., nb_iter=40, stepsize=0.5, rand_init=True):
     """ 
     Input:
     - model (pytorch model): bagnet model without avgerage pooling
@@ -750,7 +750,7 @@ def targeted_batch_upper_bound(model, metabatch, clip, a, b,
                 logging.info('current location {}'.format((x, y)))
                 metabatch.location = (x, y)
                 adv_images = metabatch.images.clone()
-                orig_labels = metabatch.labels.cuda()
+                orig_labels = metabatch.labels
                 if targeted:
                     with torch.no_grad():
                         labels = get_targeted_classes(model, adv_images.cuda(), clip, a, b, k=k, case=case)
@@ -781,9 +781,13 @@ def targeted_batch_upper_bound(model, metabatch, clip, a, b,
                         logits = clip(logits, a, b)
                     logits = torch.mean(logits, dim=(1, 2))
                     _, topk = torch.topk(logits, k=k, dim=1)
-                    l, topk = orig_labels.cpu().numpy(), topk.cpu().numpy()
-                    print("topk prediction: {}".format(topk))
-                    mis_indices = [idx for idx in range(len(l)) if l[idx] not in topk[idx]]
+                    l, topk = orig_labels.numpy(), topk.cpu().numpy()
+                    print("topk prediction with stickers: {}".format(topk))
+                    if targeted:
+                        tl = labels.cpu().numpy()
+                        mis_indices = [idx for idx in range(len(l)) if l[idx] not in topk[idx] and tl[idx] in topk[idx]]
+                    else:
+                        mis_indices = [idx for idx in range(len(l)) if l[idx] not in topk[idx]]
                     print('misclassified indices: {}'.format(mis_indices))
                     logging.info('misclassified indices: {}'.format(mis_indices))
                     metabatch.update(mis_indices, adv, targeted_labels=labels.cpu().numpy())

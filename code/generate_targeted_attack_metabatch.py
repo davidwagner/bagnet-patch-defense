@@ -27,6 +27,7 @@ flags.DEFINE_float('a', 0.05, 'clipping parameter A')
 flags.DEFINE_float('b', -1, 'clipping parameter B')
 flags.DEFINE_float('eps', 5., 'range of perturbation')
 flags.DEFINE_integer('nb_iter', 40, 'number of iterations for PGD')
+flags.DEFINE_boolean('rand_init', True, 'random initial point in attack')
 flags.DEFINE_float('stepsize', 0.5, 'stepsize of PGD')
 flags.DEFINE_integer('metabatch_size', 10, 'metabatch size')
 flags.DEFINE_string('data_path', '/mnt/data/imagenet', 'directory where data are stored')
@@ -40,7 +41,7 @@ def main(argv):
             [NAME].log
             dataset/
     """
-    NAME = 'targeted_{}_{}-{}-{}-{}-{}x{}-{}-{}-{}-{}-{}-{}-{}'.format(FLAGS.targeted, FLAGS.case, FLAGS.model, FLAGS.N, FLAGS.seed, FLAGS.attack_size[0], FLAGS.attack_size[1], FLAGS.stride, FLAGS.clip_fn, FLAGS.a, FLAGS.b, FLAGS.eps, FLAGS.nb_iter, FLAGS.stepsize)
+    NAME = 'targeted_{}_{}_rang_init_{}-{}-{}-{}-{}x{}-{}-{}-{}-{}-{}-{}-{}'.format(FLAGS.targeted, FLAGS.case, FLAGS.rand_init, FLAGS.model, FLAGS.N, FLAGS.seed, FLAGS.attack_size[0], FLAGS.attack_size[1], FLAGS.stride, FLAGS.clip_fn, FLAGS.a, FLAGS.b, FLAGS.eps, FLAGS.nb_iter, FLAGS.stepsize)
     OUTPUT_PATH = os.path.join(FLAGS.output_root, NAME)
 
     if not os.path.exists(OUTPUT_PATH):
@@ -53,7 +54,7 @@ def main(argv):
 
     logger = logging.basicConfig(filename=LOG_PATH, level=logging.INFO)
     logging.info(strftime("%Y-%m-%d %H:%M:%S", gmtime()))
-    logging.info("Setting:\n targeted: {}, case: {}, model: {}, N: {}, seed: {}, attack_size: {}x{}, stride: {}, clip_fn: {}, a: {}, b: {}, eps: {}, nb_iter: {}, stepsize: {}".format(FLAGS.targeted, FLAGS.case, FLAGS.model, FLAGS.N, FLAGS.seed, FLAGS.attack_size[0], FLAGS.attack_size[1], FLAGS.stride, FLAGS.clip_fn, FLAGS.a, FLAGS.b, FLAGS.eps, FLAGS.nb_iter, FLAGS.stepsize))
+    logging.info("Setting:\n targeted: {}, case: {}, random init: {},  model: {}, N: {}, seed: {}, attack_size: {}x{}, stride: {}, clip_fn: {}, a: {}, b: {}, eps: {}, nb_iter: {}, stepsize: {}".format(FLAGS.targeted, FLAGS.case, FLAGS.rand_init, FLAGS.model, FLAGS.N, FLAGS.seed, FLAGS.attack_size[0], FLAGS.attack_size[1], FLAGS.stride, FLAGS.clip_fn, FLAGS.a, FLAGS.b, FLAGS.eps, FLAGS.nb_iter, FLAGS.stepsize))
     ###################################
     # Model and data preparation
     ###################################
@@ -130,8 +131,9 @@ def main(argv):
     tic = time.time()
     succ_prob = targeted_batch_upper_bound(model, metabatch, 
                                   clip_fn, FLAGS.a, FLAGS.b,
-                                  attack_size=FLAGS.attack_size, eps=FLAGS.eps, nb_iter=FLAGS.nb_iter, stepsize=FLAGS.stepsize, 
-                                  stride=FLAGS.stride, k=5, 
+                                  attack_size=FLAGS.attack_size, 
+                                  eps=FLAGS.eps, nb_iter=FLAGS.nb_iter, stepsize=FLAGS.stepsize, 
+                                  stride=FLAGS.stride, k=5, rand_init=FLAGS.rand_init,
                                   targeted=FLAGS.targeted, case=FLAGS.case)
     tac = time.time()
     print("Success probability: {}, Time: {:.3f}s or {:.3f}hr(s)".format(succ_prob, tac - tic, (tac-tic)/3600))
