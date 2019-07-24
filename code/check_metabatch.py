@@ -4,6 +4,8 @@ from absl import app, flags
 import pickle
 
 FLAGS = flags.FLAGS
+flags.DEFINE_boolean('is_targeted', False, 'whether the attack is targeted')
+flags.DEFINE_string('case', None, 'case of targeted attack')
 flags.DEFINE_boolean('is_canonical', False, 'whether the model is canonical (v.s. with clipping)')
 flags.DEFINE_integer('N', 50, 'number of images')
 flags.DEFINE_integer('seed', 42, 'random seed for sampling images from ImageNet')
@@ -19,7 +21,9 @@ flags.DEFINE_string('model', 'bagnet33', 'model that generates metabatch')
 flags.DEFINE_string('output_root', '/mnt/data/results/', 'directory for storing results')
 
 def main(argv):
-    if FLAGS.is_canonical:
+    if FLAGS.is_targeted:
+        NAME = 'targeted_{}_{}-{}-{}-{}-{}x{}-{}-{}-{}-{}-{}-{}-{}'.format(FLAGS.is_targeted, FLAGS.case, FLAGS.model, FLAGS.N, FLAGS.seed, FLAGS.attack_size[0], FLAGS.attack_size[1], FLAGS.stride, FLAGS.clip_fn, FLAGS.a, FLAGS.b, FLAGS.eps, FLAGS.nb_iter, FLAGS.stepsize)
+    elif FLAGS.is_canonical:
         NAME = '{}-{}-{}x{}-{}-{}-{}-{}-{}'.format(FLAGS.N, FLAGS.seed, FLAGS.attack_size[0], FLAGS.attack_size[1], FLAGS.stride, FLAGS.model, FLAGS.eps, FLAGS.nb_iter, FLAGS.stepsize)
     else:
         NAME = '{}-{}-{}-{}x{}-{}-{}-{}-{}-{}-{}-{}'.format(FLAGS.model, FLAGS.N, FLAGS.seed, FLAGS.attack_size[0], FLAGS.attack_size[1], FLAGS.stride, FLAGS.clip_fn, FLAGS.a, FLAGS.b, FLAGS.eps, FLAGS.nb_iter, FLAGS.stepsize)
