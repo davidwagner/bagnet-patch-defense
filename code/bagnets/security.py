@@ -694,3 +694,98 @@ def batch_upper_bound(model, metabatch, clip, a, b,
             if earlystop:
                 break
     return metabatch.get_succ_prob()
+
+
+def get_targeted_classes(model, images, clip, a, b, k=5, case='avg'):
+    """ 
+    Input:
+    - model (pytorch model): bagnet model without avgerage pooling
+    - images (pytorch tensor): a batch of preprocessed images, same context as model's images 
+    - k (int): get targeted classes based on top-K prediction
+    - case (string): ['best', 'avg', 'worst']
+        'best': the class ranked at (k+1)-th
+        'avg': randomly sample one class outside of the top-k predictions
+        'worst': the class ranked the last
+    Output:
+    - targeted class (pytorch tensor): targeted class for targeted attack, same context as model's.
+    """
+    assert case in ['best', 'avg', 'worst'], 'case must be "best", "avg", or "worst"'
+    logits = model(images)
+    if clip:
+        logits = clip(logits, a, b)
+    logits = torch.mean(logits, dim=(1, 2)) # shape (N, 1000)
+    if case == 'best':
+        _, topk = torch.topk(logits, k=k+1, dim=1) # shape (N, k+1) 
+        return topk[:, -1]
+    if case == 'avg':
+        _, topk = torch.topk(logits, k=1000, dim=1) # shape (N, 1000) 
+        indices = torch.randint(low=5, high=999, size=(1,))
+        return torch.index_select(topk, 1, indices.cuda()).reshape((-1,))
+    else: # if case == 'worst'
+        _, topk = torch.topk(logits, k=1000, dim=1) # shape (N, 1000) 
+        return topk[:, -1]
+
+def targeted_batch_upper_bound(model, metabatch, clip, a, b, 
+                               attack_size, stride, k=5, targeted=True, case='avg',
+                               attack_alg=LinfPGDAttack, eps=5., nb_iter=40, stepsize=0.5, rand_init=False):
+    """ 
+    Input:
+    - model (pytorch model): bagnet model without avgerage pooling
+    - images (pytorch tensor): a batch of preprocessed images, same context as model's
+    - labels (pytorch tensor): image labels, same context as model's
+    - clip (python function): clipping function
+    - a, b (float): clipping parameters
+    Output:
+    - succ_prob (float):
+    """
+    earlystop = False
+    while not earlystop:
+        for x in range(0, 224 - attack_size[0] + 1, stride):
+            for y in range(0, 224 - attack_size[1] + 1, stride):
+                print('current location {}'.format((x, y)))
+                logging.info('current location {}'.format((x, y)))
+                metabatch.location = (x, y)
+                adv_images = metabatch.images.clone()
+                orig_labels = metabatch.labels.cuda()
+                if targeted:
+                    with torch.no_grad():
+                        labels = get_targeted_classes(model, adv_images.cuda(), clip, a, b, k=k, case=case)
+                        msg1, msg2 = "targeted labels: {}".format(labels), "original labels: {}".format(metabatch.labels)
+                        print(msg1)
+                        print(msg2)
+                        logging.info(msg1)
+                        logging.info(msg2)
+                else:
+                    labels = metabatch.labels.cuda()
+                subimg = get_subimgs(adv_images, (x, y), attack_size)
+                subimg = subimg.cuda()
+                adver_model = AdverTorchWrapper(model, adv_images, 
+                                                attack_size, (x, y), 
+                                                clip, a, b).cuda()
+                adver_model.eval()
+                adversary = attack_alg(adver_model, loss_fn=nn.CrossEntropyLoss(reduction="sum"), eps=eps,
+                              	       nb_iter=nb_iter, eps_iter=stepsize, rand_init=rand_init, 
+				       clip_min=-1.8044, clip_max=2.2489, # only for ImageNet data set.
+                                       targeted=True)
+                adv = adversary.perturb(subimg, labels).cpu()
+                # apply stickers to image
+                adv_images[:, :, adver_model.x1:adver_model.x2, adver_model.y1:adver_model.y2] = adv
+                # evaluate attack
+                with torch.no_grad():
+                    logits = model(adv_images.cuda())
+                    if clip:
+                        logits = clip(logits, a, b)
+                    logits = torch.mean(logits, dim=(1, 2))
+                    _, topk = torch.topk(logits, k=k, dim=1)
+                    l, topk = orig_labels.cpu().numpy(), topk.cpu().numpy()
+                    print("topk prediction: {}".format(topk))
+                    mis_indices = [idx for idx in range(len(l)) if l[idx] not in topk[idx]]
+                    print('misclassified indices: {}'.format(mis_indices))
+                    logging.info('misclassified indices: {}'.format(mis_indices))
+                    metabatch.update(mis_indices, adv)
+                if len(metabatch.succ_list) + len(metabatch.fail_list) == len(metabatch.waitlist): # Early stop if already determine success or failure of all the images
+                    earlystop = True
+                    break
+            if earlystop:
+                break
+    return metabatch.get_succ_prob()
