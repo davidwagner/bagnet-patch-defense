@@ -719,8 +719,8 @@ def get_targeted_classes(model, images, clip, a, b, k=5, case='avg'):
         return topk[:, -1]
     if case == 'avg':
         _, topk = torch.topk(logits, k=1000, dim=1) # shape (N, 1000) 
-        indices = torch.randint(low=5, high=999, size=1)
-        return torch.index_select(topk, 1, indices)
+        indices = torch.randint(low=5, high=999, size=(1,))
+        return torch.index_select(topk, 1, indices.cuda()).reshape((-1,))
     else: # if case == 'worst'
         _, topk = torch.topk(logits, k=1000, dim=1) # shape (N, 1000) 
         return topk[:, -1]
@@ -746,9 +746,15 @@ def targeted_batch_upper_bound(model, metabatch, clip, a, b,
                 logging.info('current location {}'.format((x, y)))
                 metabatch.location = (x, y)
                 adv_images = metabatch.images.clone()
+                orig_labels = metabatch.labels.cuda()
                 if targeted:
                     with torch.no_grad():
                         labels = get_targeted_classes(model, adv_images.cuda(), clip, a, b, k=k, case=case)
+                        msg1, msg2 = "targeted labels: {}".format(labels), "original labels: {}".format(metabatch.labels)
+                        print(msg1)
+                        print(msg2)
+                        logging.info(msg1)
+                        logging.info(msg2)
                 else:
                     labels = metabatch.labels.cuda()
                 subimg = get_subimgs(adv_images, (x, y), attack_size)
@@ -771,7 +777,8 @@ def targeted_batch_upper_bound(model, metabatch, clip, a, b,
                         logits = clip(logits, a, b)
                     logits = torch.mean(logits, dim=(1, 2))
                     _, topk = torch.topk(logits, k=k, dim=1)
-                    l, topk = labels.cpu().numpy(), topk.cpu().numpy()
+                    l, topk = orig_labels.cpu().numpy(), topk.cpu().numpy()
+                    print("topk prediction: {}".format(topk))
                     mis_indices = [idx for idx in range(len(l)) if l[idx] not in topk[idx]]
                     print('misclassified indices: {}'.format(mis_indices))
                     logging.info('misclassified indices: {}'.format(mis_indices))
