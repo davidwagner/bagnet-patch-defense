@@ -95,8 +95,8 @@ def main(argv):
 
     acc_list = []
 
-    if FLAGS.param = 'a':
-        for param in FLAGS.param_list:
+    if FLAGS.param == 'a':
+        for param in [i*0.01 for i in range(101)]:
             msg = "Threshold: a = {}".format(param)
             print(msg)
             logging.info(msg)
