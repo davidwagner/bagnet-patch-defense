@@ -465,7 +465,7 @@ class MetaBatch:
         self.record = np.zeros((self.size, 2), dtype=np.int64) # [(image ID 0, # duration 0), (image ID 1, # duration 1), ...]
         self.labels = torch.zeros((self.size, ), dtype=torch.int64)
         assert self.size <= len(data_iter), "Size of MetaBatch shouldn't larger than data iterator's size"
-        self.orig_list = {}
+        self.orig_list = {} # {id: (image, label)}
         for idx in range(self.size):
             image, label = next(self.waitlist)
             self.orig_list[self.global_step] = (image[0].clone(), label.item())
@@ -473,24 +473,28 @@ class MetaBatch:
             self.global_step += 1
             self.images[idx] = image[0].clone()
             self.labels[idx] = label.item()
-        self.fail_list = {}
-        self.adv = {}
-        self.succ_list = []
+        self.fail_list = {} # {id: (image, label, loc), ...}
+        self.adv = {} # {id: adv_sticker, ...}
+        self.targeted = {} # {id: targeted_class_index, ...}
+        self.succ_list = [] # [id, ...]
         self.max_iter = max_iter
         self.location = None
     
-    def update(self, indices, adv):
+    def update(self, indices, adv, targeted_labels=None):
         """ - Replace images that generate adversatial stickers successfully with new images from 
                 the wait list.
         Input:
-        - indices (list): 
-        - adv ():
+        - indices (python list): 
+        - adv (pytorch tensor):
+        - targeted_labels (python list)
         """
         # Replace failure cases with new images
         for idx in indices:
             if self.record[idx, 0] not in self.adv.keys(): # don't update images that are already failed.
                 self.fail_list[self.record[idx, 0]] = (self.images[idx].clone(), self.labels[idx].item(), self.location) # (image, label, attack location)
                 self.adv[self.record[idx, 0]] = adv[idx].clone()
+                if targeted_labels is not None:
+                    self.targeted[self.record[idx, 0]] = targeted_labels[idx]
                 try:
                     image, label = next(self.waitlist)
                     self.orig_list[self.global_step] = (image[0].clone(), label.item())
@@ -782,7 +786,7 @@ def targeted_batch_upper_bound(model, metabatch, clip, a, b,
                     mis_indices = [idx for idx in range(len(l)) if l[idx] not in topk[idx]]
                     print('misclassified indices: {}'.format(mis_indices))
                     logging.info('misclassified indices: {}'.format(mis_indices))
-                    metabatch.update(mis_indices, adv)
+                    metabatch.update(mis_indices, adv, targeted_labels=labels.cpu().numpy())
                 if len(metabatch.succ_list) + len(metabatch.fail_list) == len(metabatch.waitlist): # Early stop if already determine success or failure of all the images
                     earlystop = True
                     break
