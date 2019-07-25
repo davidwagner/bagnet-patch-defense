@@ -443,7 +443,7 @@ class ScheduledParamAdverTorchWrapper(AdverTorchWrapper):
         img[:, :, self.x1:self.x2, self.y1:self.y2] = subimg
         curr_factor = self.factor_list[self.curr_step]
         clipped_patch_logits = self._clip_logits(img, a = curr_factor*self.a, b = curr_factor*self.b)
-        curr_factor += 1
+        self.curr_step += 1
         clipped_class_logits = torch.mean(clipped_patch_logits, dim=(1, 2))
         return clipped_class_logits
 
@@ -732,6 +732,9 @@ def scheduled_upper_bound(model, metabatch,
                 subimg = get_subimgs(adv_images, (x, y), attack_size)
                 subimg = subimg.cuda()
                 labels = metabatch.labels.cuda()
+                msg = "labels: {}".format(labels)
+                print(msg)
+                logging.info(msg)
                 adver_model = ScheduledParamAdverTorchWrapper(model, adv_images, attack_size, (x, y), nb_iter=nb_iter).cuda()
                 adver_model.eval()
                 adversary = attack_alg(adver_model, loss_fn=nn.CrossEntropyLoss(reduction="sum"), eps=eps,
@@ -749,6 +752,7 @@ def scheduled_upper_bound(model, metabatch,
                     logits = torch.mean(logits, dim=(1, 2))
                     _, topk = torch.topk(logits, k=k, dim=1)
                     l, topk = labels.cpu().numpy(), topk.cpu().numpy()
+                    print("topk prediction with stickers: \n {}".format(topk))
                     mis_indices = [idx for idx in range(len(l)) if l[idx] not in topk[idx]]
                     print('misclassified indices: {}'.format(mis_indices))
                     logging.info('misclassified indices: {}'.format(mis_indices))
