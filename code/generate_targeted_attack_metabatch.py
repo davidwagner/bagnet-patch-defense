@@ -41,7 +41,7 @@ def main(argv):
             [NAME].log
             dataset/
     """
-    NAME = 'targeted_{}_{}_rang_init_{}-{}-{}-{}-{}x{}-{}-{}-{}-{}-{}-{}-{}'.format(FLAGS.targeted, FLAGS.case, FLAGS.rand_init, FLAGS.model, FLAGS.N, FLAGS.seed, FLAGS.attack_size[0], FLAGS.attack_size[1], FLAGS.stride, FLAGS.clip_fn, FLAGS.a, FLAGS.b, FLAGS.eps, FLAGS.nb_iter, FLAGS.stepsize)
+    NAME = 'targeted_{}_{}_rand_init_{}-{}-{}-{}-{}x{}-{}-{}-{}-{}-{}-{}-{}'.format(FLAGS.targeted, FLAGS.case, FLAGS.rand_init, FLAGS.model, FLAGS.N, FLAGS.seed, FLAGS.attack_size[0], FLAGS.attack_size[1], FLAGS.stride, FLAGS.clip_fn, FLAGS.a, FLAGS.b, FLAGS.eps, FLAGS.nb_iter, FLAGS.stepsize)
     OUTPUT_PATH = os.path.join(FLAGS.output_root, NAME)
 
     if not os.path.exists(OUTPUT_PATH):

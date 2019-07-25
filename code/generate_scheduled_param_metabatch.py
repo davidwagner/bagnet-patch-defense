@@ -36,7 +36,7 @@ def main(argv):
             [NAME].log
             dataset/
     """
-    NAME = 'scheduled-rang_init_{}-{}-{}-{}-{}x{}-{}-{}-{}-{}'.format(FLAGS.rand_init, FLAGS.model, FLAGS.N, FLAGS.seed, FLAGS.attack_size[0], FLAGS.attack_size[1], FLAGS.stride, FLAGS.eps, FLAGS.nb_iter, FLAGS.stepsize)
+    NAME = 'scheduled-rand_init_{}-{}-{}-{}-{}x{}-{}-{}-{}-{}'.format(FLAGS.rand_init, FLAGS.model, FLAGS.N, FLAGS.seed, FLAGS.attack_size[0], FLAGS.attack_size[1], FLAGS.stride, FLAGS.eps, FLAGS.nb_iter, FLAGS.stepsize)
     OUTPUT_PATH = os.path.join(FLAGS.output_root, NAME)
 
     if not os.path.exists(OUTPUT_PATH):
