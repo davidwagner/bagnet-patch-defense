@@ -156,6 +156,8 @@ def main(argv):
     metabatch.waitlist = None
     with open(os.path.join(OUTPUT_PATH, NAME+'.mtb'), 'wb') as file:
         pickle.dump(metabatch, file)
+    print("Success probability: {}, Time: {:.3f}s or {:.3f}hr(s)".format(succ_prob, tac - tic, (tac-tic)/3600))
+
 
 if __name__ == "__main__":
     app.run(main)
