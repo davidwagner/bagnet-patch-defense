@@ -37,22 +37,40 @@ def is_invariant(class_lower, class_upper, label, target=None, k=5):
         return target_lower >= top6_values[-1].item() or target not in list(top6[:k])
 
 
-def get_affected_patches(attack_size, position):
-    """Given the size and region of an attack, return the coordinate of affected patch
-    Input:
-    - attack_size (int tuple),: (h, w), hight and width of attack
-    - position (int tuple): top-left pixel's coordinate of attacking sticker in (224*224)
-    Output (tuple): (x1, y1, x2, y2), where (x1, y1) is the coordinate of top-left patch in logit space,
-                                and (x2, y2) is the coordinate of bottom-right patch in logit space.
+def get_affected_patches(attack_size, location, ps=33):
     """
-    ax, ay = attack_size
-    p1, q1 = position
-    p2, q2 = p1 + ax - 1, q1 + ay - 1
-    assert p2 <= 223 and q2 <= 223, "sticker shouldn't exceed image"
-    assert p2 >= p1 and q2 >= q1, "attack size shouldn't be zero"
-    x1, y1 = max((p1 - 33 + 1) // 8, 0), max((q1 - 33 + 1)// 8, 0)
-    x2, y2 = min((p2 + 33 - 1) // 8, 23), min((q2 + 33 - 1) // 8, 23)
-    return (x1, y1, x2, y2)
+    """
+    assert ps in [9, 17, 33]
+    ps2bound = {9:27-1, 17:26-1, 33:24-1}
+    boundary = ps2bound[ps] # max index in logit space
+    x1, y1 = location # top-left coordinate of the sticker
+    dx, dy = attack_size
+    x2, y2 = x1 + dx - 1, y1 + dy - 1 # bottom-right coordinate of the sticker
+    
+    p1, q1 = max(0, x1 - ps + 1), max(0, y1 - ps + 1)
+    p1, q1 = (p1 // 8) * 8, (q1 // 8) * 8 # align to the receptive field's top-left coordinate in image space
+    p2, q2 = p1 + ps - 1, q1 + ps - 1
+    while not x1 <= p2 and x2 >= p1:
+        p1 += ps - 1
+        p2 += ps - 1
+    while not y1 <= q2 and y2 >= q1:
+        q2 += ps - 1
+        q1 += ps - 1
+    tx, ty = p1 // 8, q1 // 8
+    
+    # repeat the procedure above for bottom right coordinate
+    p1, q1 = min(8*boundary, x2 + ps - 1), min(8*boundary, y2 + ps - 1)
+    p1, q1 = (p1 // 8) * 8, (q1 // 8) * 8
+    p2, q2 = p1 + ps - 1, q1 + ps - 1
+    while not p1 <= x2 and p2 >= x1:
+        p1 -= ps + 1
+        p2 -= ps + 1
+    while not q1 >= y2 and q2 <= y1:
+        q2 -= ps + 1
+        q1 -= ps + 1
+        
+    bx, by = p1 // 8, q1 // 8
+    return (tx, ty, bx, by)
 
 def bound_patch_attack(patch_logits, affected_patch, bound=(-1, 1)):
     """Bound the effect of patch attack given affected patches
@@ -73,14 +91,14 @@ def bound_patch_attack(patch_logits, affected_patch, bound=(-1, 1)):
     class_logits_lower = torch.mean(lower, dim=(0, 1))
     return (class_logits_lower, class_logits_upper)
 
-def get_position_buffer(h, w, attack_size, stride):
+def get_position_buffer(h, w, attack_size, stride, ps=33):
     """Buffer of all possible affected patch positions
     """
     buffer = set()
     last_affected_patches = (0, 0, 0, 0)
     for i in range(0, h - attack_size[0]+1, stride):
         for j in range(0, w - attack_size[1]+1, stride):    
-            affected_patches = get_affected_patches(attack_size, (i, j))
+            affected_patches = get_affected_patches(attack_size, (i, j), ps=ps)
             buffer.add(affected_patches)
     return buffer
 
