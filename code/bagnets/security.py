@@ -17,20 +17,24 @@ from advertorch.attacks import LinfPGDAttack
 # Security Lower Bound
 #########################################
 
-def is_invariant(class_lower, class_upper, target, k=6):
+def is_invariant(class_lower, class_upper, label, target=None, k=5):
     """Given the upper bound and lower bound of class logits of one image, determine
         whether the classifier could possibly misclassify this image in top-K prediction.
     Input:
     - class_upper (pytorch tensor): shape = (1000,) in CPU
     - class_lower (pytorch tensor): shape = (1000,) in CPU
-    - targets (int): image's label
+    - label (int): image's label
+    - targets (int): targeted class. None means untargeted attack
     - k (int): top-K prediction
     Output (output): whether the classifier is robust against the attack on this image
     """
     target_lower = class_lower[target].item()
-    top6_values, top6_classes = torch.topk(class_upper, k=k)
+    top6_values, top6_classes = torch.topk(class_upper, k=k+1)
     top6 = top6_values.numpy()
-    return target_lower > top6_values[-1].item()
+    if target is None:
+        return target_lower >= top6_values[-1].item()
+    else:
+        return target_lower >= top6_values[-1].item() or target not in list(top6[:k+1])
 
 
 def get_affected_patches(attack_size, position):
@@ -80,42 +84,30 @@ def get_position_buffer(h, w, attack_size, stride):
             buffer.add(affected_patches)
     return buffer
 
-def get_security_lower_bound(bagnet, images, targets, attack_size, clip, stride=1, bound=(-1, 1), **kwargs):
-    """ Given a batch of images and the size of adversarial sticker, loop over each of  
-            the possible position of the sticker to count how many images in the batch 
-            can still be correctly classified if the sticker is at that position.
-    Input:
-    - bagnet (pytorch model): BagNet-33 without avgerage pooling
-    - images (pytorch tensor): images given by foolbox.sample, after preprocessing, in GPU
-    - targets (numpy array): targets
-    - attack_size (tuple): (h, w), height and width of the adversarial sticker
-    - clip (function): clipping function
-    - stride (int): stride of sticker
-    - bound (tuple): tanh_linear: (-1, 1), sigmoid_linear: (-1, 1)
-    Output:
-    - succ_prob (float): fraction of images whose prediction are invariant in the worst case
+def pick_targeted_classes(logits, k=5, case='avg'):
     """
-    clipped_patch_logits = clip_logits(bagnet, clip, images, **kwargs)
-    clipped_patch_logits = clipped_patch_logits.cpu()
-    n, c, h, w = images.shape
-    num_invariant = 0
-    positions = get_position_buffer(h, w, attack_size, stride)
-    for k in range(n):
-        img_patch_logits = clipped_patch_logits[k, :] # shape (24, 24, 1000)
-        target = targets[k]
-        flag = True
-        for p in positions:
-            class_lower, class_upper = bound_patch_attack(img_patch_logits, p, bound=bound)
-            if not is_invariant(class_lower, class_upper, target):
-                flag = False
-                break
-        if flag:
-            num_invariant += 1
-    succ_prob = num_invariant / n
-    return succ_prob
+    Input:
+    - logits (pytorch tensor): clipped logits (clipped patch logits after avg). Shape (N, 1000)
+    - k (int): top-k prediction
+    - case (string): ['best', 'avg', 'worst']
+            'best': the class ranked at (k+1)-th
+            'avg': randomly sample one class outside of the top-k predictions
+            'worst': the class ranked the last
+    """
+    assert case in ['best', 'avg', 'worst'], 'case must be "best", "avg", or "worst"'
+    if case == 'best':
+        _, topk = torch.topk(logits, k=k+1, dim=1) # shape (N, k+1) 
+        return topk[:, -1]
+    if case == 'avg':
+        _, topk = torch.topk(logits, k=1000, dim=1) # shape (N, 1000) 
+        indices = torch.randint(low=5, high=999, size=(1,))
+        return torch.index_select(topk, 1, indices.cuda()).reshape((-1,))
+    else: # if case == 'worst'
+        _, topk = torch.topk(logits, k=1000, dim=1) # shape (N, 1000) 
+        return topk[:, -1]
 
 # pytorch data loader version
-def get_security_lower_bound2(bagnet, data_loader, attack_size, clip, stride=1, bound=(-1, 1), **kwargs):
+def get_security_lower_bound(bagnet, data_loader, attack_size, clip, stride=1, bound=(-1, 1), **kwargs):
     """ Take in a pytorch data loader and the size of adversarial sticker, loop over each of  
             the possible position of the sticker to count how many images in the batch 
             can still be correctly classified if the sticker is at that position.
@@ -135,17 +127,25 @@ def get_security_lower_bound2(bagnet, data_loader, attack_size, clip, stride=1, 
     num_invariant, total_images = 0, 0
     for images, targets in data_loader:
         images, targets = images.cuda(), targets.numpy()
-        clipped_patch_logits = clip_logits(bagnet, clip, images, **kwargs)
-        clipped_patch_logits = clipped_patch_logits.cpu()
+        with torch.no_grad():
+            logits = bagnet(images)
+        logits = clip_fn(logits, a, b).cpu()
+        avg_logits = torch.mean(logits, dim=(1, 2))
+        if targeted:
+            targets = pick_targeted_classes(avg_logits, k=k, case=case)
+            targets = targetes.numpy()
+        else:
+            targets = None
         n, c, h, w = images.shape
         total_images += n
         for k in range(n):
-            img_patch_logits = clipped_patch_logits[k] # shape (24, 24, 1000)
-            target = targets[k]
+            img_patch_logits = logits[k] # shape (24, 24, 1000)
+            label = labels[k]
+            if targeted: target = targets[k]
             flag = True
             for p in positions:
                 class_lower, class_upper = bound_patch_attack(img_patch_logits, p, bound=bound)
-                if not is_invariant(class_lower, class_upper, target):
+                if not is_invariant(class_lower, class_upper, label, target):
                     flag = False
                     break
             if flag:
