@@ -34,7 +34,7 @@ def is_invariant(class_lower, class_upper, label, target=None, k=5):
     if target is None:
         return target_lower >= top6_values[-1].item()
     else:
-        return target_lower >= top6_values[-1].item() or target not in list(top6[:k+1])
+        return target_lower >= top6_values[-1].item() or target not in list(top6[:k])
 
 
 def get_affected_patches(attack_size, position):
