@@ -140,7 +140,7 @@ def main(argv):
         logging.info("image {}:".format(key))
         image, label, loc = value
         x1, y1 = loc
-        x2, y2 = x1 + 20, y1 + 20
+        x2, y2 = x1 + FLAGS.attack_size[0], y1 + FLAGS.attack_size[1]
         adv = metabatch.adv[key].clone()
         image = image[None].clone()
         image[:, :, x1:x2, y1:y2] = adv[None]

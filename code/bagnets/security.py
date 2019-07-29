@@ -28,13 +28,13 @@ def is_invariant(class_lower, class_upper, label, target=None, k=5):
     - k (int): top-K prediction
     Output (output): whether the classifier is robust against the attack on this image
     """
-    target_lower = class_lower[target].item()
+    label_lower = class_lower[label].item()
     top6_values, top6_classes = torch.topk(class_upper, k=k+1)
     top6 = top6_values.numpy()
     if target is None:
-        return target_lower >= top6_values[-1].item()
+        return label_lower >= top6_values[-1].item()
     else:
-        return target_lower >= top6_values[-1].item() or target not in list(top6[:k])
+        return label_lower >= top6_values[-1].item() or target not in list(top6[:k])
 
 
 def get_affected_patches(attack_size, location, ps=33):
@@ -718,6 +718,7 @@ def batch_upper_bound(model, metabatch, clip, a, b,
                     print('misclassified indices: {}'.format(mis_indices))
                     logging.info('misclassified indices: {}'.format(mis_indices))
                     metabatch.update(mis_indices, adv)
+                print("Defense (total: {}): \n succeed: {}, fail: {}".format(len(metabatch.waitlist), len(metabatch.succ_list), len(metabatch.fail_list)))
                 if len(metabatch.succ_list) + len(metabatch.fail_list) == len(metabatch.waitlist): # Early stop if already determine success or failure of all the images
                     earlystop = True
                     break

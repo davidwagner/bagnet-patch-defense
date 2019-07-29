@@ -37,17 +37,32 @@
 #sudo python3 generate_generic_new_metabatch.py -N=500 -seed=88 -metabatch_size=10 -model=bagnet9
 
 ######################################################################
-# 500 images random initialization, nb_iter = 40, 80, 120 (In progress)
+# 2019-7-27 500 images random initialization, nb_iter = 40, 80, 120 (Finished)
 ######################################################################
-sudo python3 generate_new_metabatch.py -rand_init=True -N=500 -seed=42 -nb_iter=40 -stepsize=0.125 -metabatch_size=10 -model=bagnet33
-sudo python3 generate_new_metabatch.py -rand_init=True -N=500 -seed=42 -nb_iter=80 -stepsize=0.0625 -metabatch_size=10 -model=bagnet33
-sudo python3 generate_new_metabatch.py -rand_init=True -N=500 -seed=42 -nb_iter=120 -stepsize=0.04 -metabatch_size=10 -model=bagnet33
+#sudo python3 generate_new_metabatch.py -rand_init=True -N=500 -seed=42 -nb_iter=5 -stepsize=1 -metabatch_size=10 -model=bagnet33
+#sudo python3 generate_new_metabatch.py -rand_init=True -N=500 -seed=42 -nb_iter=10 -stepsize=0.5 -metabatch_size=10 -model=bagnet33
+#sudo python3 generate_new_metabatch.py -rand_init=True -N=500 -seed=42 -nb_iter=20 -stepsize=0.25 -metabatch_size=10 -model=bagnet33
+#sudo python3 generate_new_metabatch.py -rand_init=True -N=500 -seed=42 -nb_iter=40 -stepsize=0.125 -metabatch_size=10 -model=bagnet33
+#sudo python3 generate_new_metabatch.py -rand_init=True -N=500 -seed=42 -nb_iter=80 -stepsize=0.0625 -metabatch_size=10 -model=bagnet33
 
 ######################################################################
-# 500 images random initialization, several step sizes (Planed)
+# 2019-7-28 500 images random initialization, several step sizes (Planing)
 ######################################################################
 #sudo python3 generate_new_metabatch.py -rand_init=True -N=500 -seed=42 -nb_iter=40 -stepsize=0.225 -metabatch_size=10 -model=bagnet33
 #sudo python3 generate_new_metabatch.py -rand_init=True -N=500 -seed=42 -nb_iter=40 -stepsize=0.325 -metabatch_size=10 -model=bagnet33
 #sudo python3 generate_new_metabatch.py -rand_init=True -N=500 -seed=42 -nb_iter=40 -stepsize=0.425 -metabatch_size=10 -model=bagnet33
 #sudo python3 generate_new_metabatch.py -rand_init=True -N=500 -seed=42 -nb_iter=40 -stepsize=0.5 -metabatch_size=10 -model=bagnet33
-#sudo python3 generate_new_metabatch.py -rand_init=True -N=500 -seed=42 -nb_iter=40 -stepsize=0.5 -metabatch_size=10 -model=bagnet33
+
+#######################################################################
+# 2019-7-28 500 images sticker size 5x5, 10x10, 15x15, 20x20, ... , 50x50  (In progress)
+######################################################################
+#sudo python3 generate_new_metabatch.py -rand_init=True -N=500 -seed=42 -nb_iter=10 -attack_size=50 -attack_size=50 -stride=50 -stepsize=0.5 -metabatch_size=10 -model=bagnet33
+sudo python3 generate_new_metabatch.py -rand_init=True -N=500 -seed=42 -nb_iter=10 -attack_size=45 -attack_size=45 -stride=45 -stepsize=0.5 -metabatch_size=10 -model=bagnet33
+sudo python3 generate_new_metabatch.py -rand_init=True -N=500 -seed=42 -nb_iter=10 -attack_size=40 -attack_size=40 -stride=40 -stepsize=0.5 -metabatch_size=10 -model=bagnet33
+sudo python3 generate_new_metabatch.py -rand_init=True -N=500 -seed=42 -nb_iter=10 -attack_size=35 -attack_size=35 -stride=35 -stepsize=0.5 -metabatch_size=10 -model=bagnet33
+sudo python3 generate_new_metabatch.py -rand_init=True -N=500 -seed=42 -nb_iter=10 -attack_size=30 -attack_size=30 -stride=30 -stepsize=0.5 -metabatch_size=10 -model=bagnet33
+sudo python3 generate_new_metabatch.py -rand_init=True -N=500 -seed=42 -nb_iter=10 -attack_size=25 -attack_size=25 -stride=25 -stepsize=0.5 -metabatch_size=10 -model=bagnet33
+sudo python3 generate_new_metabatch.py -rand_init=True -N=500 -seed=42 -nb_iter=10 -attack_size=15 -attack_size=15 -stride=15 -stepsize=0.5 -metabatch_size=10 -model=bagnet33
+sudo python3 generate_new_metabatch.py -rand_init=True -N=500 -seed=42 -nb_iter=10 -attack_size=10 -attack_size=10 -stride=10 -stepsize=0.5 -metabatch_size=10 -model=bagnet33
+sudo python3 generate_new_metabatch.py -rand_init=True -N=500 -seed=42 -nb_iter=10 -attack_size=5 -attack_size=5 -stride=5 -stepsize=0.5 -metabatch_size=10 -model=bagnet33
+
