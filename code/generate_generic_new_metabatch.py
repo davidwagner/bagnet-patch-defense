@@ -17,12 +17,13 @@ import json
 
 FLAGS = flags.FLAGS
 flags.DEFINE_integer('N', 500, 'number of images')
-flags.DEFINE_integer('seed', 42, 'random seed for sampling images from ImageNet')
+flags.DEFINE_boolean('rand_init', True, 'randomly init stickers')
+flags.DEFINE_integer('chunkid', 10, 'index of partition chunk')
 flags.DEFINE_multi_integer('attack_size', [20, 20], 'size of sticker')
 flags.DEFINE_integer('stride', 20, 'stride of sticker')
 flags.DEFINE_string('model', 'bagnet33', 'model being evaluated')
 flags.DEFINE_float('eps', 5., 'range of perturbation')
-flags.DEFINE_integer('nb_iter', 40, 'number of iterations for PGD')
+flags.DEFINE_integer('nb_iter', 10, 'number of iterations for PGD')
 flags.DEFINE_float('stepsize', 0.5, 'stepsize of PGD')
 flags.DEFINE_integer('metabatch_size', 10, 'metabatch size')
 flags.DEFINE_string('data_path', '/mnt/data/imagenet', 'data directory')
@@ -36,7 +37,7 @@ def main(argv):
             [NAME].log
             dataset/
     """
-    NAME = '{}-{}-{}x{}-{}-{}-{}-{}-{}'.format(FLAGS.N, FLAGS.seed, FLAGS.attack_size[0], FLAGS.attack_size[1], FLAGS.stride, FLAGS.model, FLAGS.eps, FLAGS.nb_iter, FLAGS.stepsize)
+    NAME = '{}-{}-{}x{}-{}-{}-{}-{}-{}'.format(FLAGS.N, FLAGS.chunkid, FLAGS.attack_size[0], FLAGS.attack_size[1], FLAGS.stride, FLAGS.model, FLAGS.eps, FLAGS.nb_iter, FLAGS.stepsize)
     OUTPUT_PATH = os.path.join(FLAGS.output_root, NAME)
     print(OUTPUT_PATH)
 
@@ -50,7 +51,7 @@ def main(argv):
 
     logger = logging.basicConfig(filename=LOG_PATH, level=logging.INFO)
     logging.info(strftime("%Y-%m-%d %H:%M:%S", gmtime()))
-    logging.info("Setting:\n N: {}, seed: {}, attack_size: {}x{}, stride: {}, model: {}, eps: {}, nb_iter: {}, stepsize: {}".format(FLAGS.N, FLAGS.seed, FLAGS.attack_size[0], FLAGS.attack_size[1], FLAGS.stride, FLAGS.model, FLAGS.eps, FLAGS.nb_iter, FLAGS.stepsize))
+    logging.info("Setting:\n N: {}, chunk id: {}, attack_size: {}x{}, stride: {}, model: {}, eps: {}, nb_iter: {}, stepsize: {}".format(FLAGS.N, FLAGS.chunkid, FLAGS.attack_size[0], FLAGS.attack_size[1], FLAGS.stride, FLAGS.model, FLAGS.eps, FLAGS.nb_iter, FLAGS.stepsize))
     ###################################
     # Model and data preparation
     ###################################
@@ -75,8 +76,7 @@ def main(argv):
     imagenet_val = datasets.ImageNet(FLAGS.data_path, split='val', download=False,
                                          transform=imagenet_transform)
 
-    np.random.seed(FLAGS.seed)
-    val_subset_indices = np.random.choice(np.arange(50000), size=FLAGS.N, replace=False)
+    val_subset_indices = image_partition(42, 500)[FLAGS.chunkid]
     val_subset_loader = torch.utils.data.DataLoader(imagenet_val,
                                                     batch_size=1,
                                                     num_workers=4,
@@ -89,7 +89,12 @@ def main(argv):
                 "resnet34":models.resnet34(pretrained=True),
                 "bagnet9":bagnets.pytorch.bagnet9(pretrained=True, avg_pool=True),
                 "bagnet17":bagnets.pytorch.bagnet17(pretrained=True, avg_pool=True),
-                "bagnet33":bagnets.pytorch.bagnet33(pretrained=True, avg_pool=True)}
+                "bagnet33":bagnets.pytorch.bagnet33(pretrained=True, avg_pool=True),
+                "resnet50":models.resnet50(pretrained=True),
+                "resnet101":models.resnet101(pretrained=True),
+                "resnet152":models.resnet152(pretrained=True),
+                "densenet":models.densenet161(pretrained=True),
+                "inception":models.inception_v3(pretrained=True)}
 
     model = model_dic[FLAGS.model]
 
@@ -123,7 +128,7 @@ def main(argv):
     tic = time.time()
     succ_prob = undefended_batch_upper_bound(model, metabatch,
                                   attack_size=FLAGS.attack_size, eps=FLAGS.eps, nb_iter=FLAGS.nb_iter, stepsize=FLAGS.stepsize,
-                                  stride=FLAGS.stride, k=5)
+                                  stride=FLAGS.stride, k=5, rand_init=FLAGS.rand_init)
     tac = time.time()
     print("Success probability: {}, Time: {:.3f}s or {:.3f}hr(s)".format(succ_prob, tac - tic, (tac-tic)/3600))
     logging.info("Success probability: {}, Time: {:.3f}s or {:.3f}hr(s)".format(succ_prob, tac - tic, (tac-tic)/3600))
@@ -150,6 +155,7 @@ def main(argv):
         topk = topk[0].cpu().numpy()
         print(label, topk)
         logging.info((label, topk))
+    print("Success probability: {}, Time: {:.3f}s or {:.3f}hr(s)".format(succ_prob, tac - tic, (tac-tic)/3600))
 
     metabatch.waitlist = None
     with open(os.path.join(OUTPUT_PATH, NAME+'.mtb'), 'wb') as file:

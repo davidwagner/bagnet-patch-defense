@@ -15,6 +15,14 @@ model_urls = {
             'bagnet33': 'https://bitbucket.org/wielandbrendel/bag-of-feature-pretrained-models/raw/249e8fa82c0913623a807d9d35eeab9da7dcc2a8/bagnet32-2ddd53ed.pth.tar',
                             }
 
+def image_partition(seed, partition_size):
+    idx_lst = np.arange(50000)
+    np.random.seed(seed)
+    np.random.shuffle(idx_lst)
+    num_per_partition = int(50000/partition_size)
+    idx_lst = np.split(idx_lst, num_per_partition)
+    return idx_lst
+
 def plot_heatmap(heatmap, original, ax, cmap='RdBu_r', 
                  percentile=99, dilation=0.5, alpha=0.25):
     """

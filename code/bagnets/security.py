@@ -664,6 +664,7 @@ def undefended_batch_upper_bound(model, metabatch,
                     print('misclassified indices: {}'.format(mis_indices))
                     logging.info('misclassified indices: {}'.format(mis_indices))
                     metabatch.update(mis_indices, adv)
+                print("Defense (total: {}): \n succeed: {}, fail: {}".format(len(metabatch.waitlist), len(metabatch.succ_list), len(metabatch.fail_list)))
                 if len(metabatch.succ_list) + len(metabatch.fail_list) == len(metabatch.waitlist): # Early stop if already determine success or failure of all the images
                     earlystop = True
                     break

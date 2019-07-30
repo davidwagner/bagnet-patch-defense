@@ -54,15 +54,26 @@
 #sudo python3 generate_new_metabatch.py -rand_init=True -N=500 -seed=42 -nb_iter=40 -stepsize=0.5 -metabatch_size=10 -model=bagnet33
 
 #######################################################################
-# 2019-7-28 500 images sticker size 5x5, 10x10, 15x15, 20x20, ... , 50x50  (In progress)
+# 2019-7-28 BagNet-33 500 images sticker size 5x5, 10x10, 15x15, 20x20, ... , 50x50  (Finished)
 ######################################################################
 #sudo python3 generate_new_metabatch.py -rand_init=True -N=500 -seed=42 -nb_iter=10 -attack_size=50 -attack_size=50 -stride=50 -stepsize=0.5 -metabatch_size=10 -model=bagnet33
-sudo python3 generate_new_metabatch.py -rand_init=True -N=500 -seed=42 -nb_iter=10 -attack_size=45 -attack_size=45 -stride=45 -stepsize=0.5 -metabatch_size=10 -model=bagnet33
-sudo python3 generate_new_metabatch.py -rand_init=True -N=500 -seed=42 -nb_iter=10 -attack_size=40 -attack_size=40 -stride=40 -stepsize=0.5 -metabatch_size=10 -model=bagnet33
-sudo python3 generate_new_metabatch.py -rand_init=True -N=500 -seed=42 -nb_iter=10 -attack_size=35 -attack_size=35 -stride=35 -stepsize=0.5 -metabatch_size=10 -model=bagnet33
-sudo python3 generate_new_metabatch.py -rand_init=True -N=500 -seed=42 -nb_iter=10 -attack_size=30 -attack_size=30 -stride=30 -stepsize=0.5 -metabatch_size=10 -model=bagnet33
-sudo python3 generate_new_metabatch.py -rand_init=True -N=500 -seed=42 -nb_iter=10 -attack_size=25 -attack_size=25 -stride=25 -stepsize=0.5 -metabatch_size=10 -model=bagnet33
-sudo python3 generate_new_metabatch.py -rand_init=True -N=500 -seed=42 -nb_iter=10 -attack_size=15 -attack_size=15 -stride=15 -stepsize=0.5 -metabatch_size=10 -model=bagnet33
-sudo python3 generate_new_metabatch.py -rand_init=True -N=500 -seed=42 -nb_iter=10 -attack_size=10 -attack_size=10 -stride=10 -stepsize=0.5 -metabatch_size=10 -model=bagnet33
-sudo python3 generate_new_metabatch.py -rand_init=True -N=500 -seed=42 -nb_iter=10 -attack_size=5 -attack_size=5 -stride=5 -stepsize=0.5 -metabatch_size=10 -model=bagnet33
+#sudo python3 generate_new_metabatch.py -rand_init=True -N=500 -seed=42 -nb_iter=10 -attack_size=45 -attack_size=45 -stride=45 -stepsize=0.5 -metabatch_size=10 -model=bagnet33
+#sudo python3 generate_new_metabatch.py -rand_init=True -N=500 -seed=42 -nb_iter=10 -attack_size=40 -attack_size=40 -stride=40 -stepsize=0.5 -metabatch_size=10 -model=bagnet33
+#sudo python3 generate_new_metabatch.py -rand_init=True -N=500 -seed=42 -nb_iter=10 -attack_size=35 -attack_size=35 -stride=35 -stepsize=0.5 -metabatch_size=10 -model=bagnet33
+#sudo python3 generate_new_metabatch.py -rand_init=True -N=500 -seed=42 -nb_iter=10 -attack_size=30 -attack_size=30 -stride=30 -stepsize=0.5 -metabatch_size=10 -model=bagnet33
+#sudo python3 generate_new_metabatch.py -rand_init=True -N=500 -seed=42 -nb_iter=10 -attack_size=25 -attack_size=25 -stride=25 -stepsize=0.5 -metabatch_size=10 -model=bagnet33
+#sudo python3 generate_new_metabatch.py -rand_init=True -N=500 -seed=42 -nb_iter=10 -attack_size=15 -attack_size=15 -stride=15 -stepsize=0.5 -metabatch_size=10 -model=bagnet33
+#sudo python3 generate_new_metabatch.py -rand_init=True -N=500 -seed=42 -nb_iter=10 -attack_size=10 -attack_size=10 -stride=10 -stepsize=0.5 -metabatch_size=10 -model=bagnet33
+
+#######################################################################
+# 2019-7-28 BagNet-17 500 images sticker size 5x5, 10x10, 15x15, 20x20, ... , 50x50  (In progress)
+######################################################################
+sudo python3 generate_new_metabatch.py -rand_init=True -N=500 -seed=42 -nb_iter=10 -attack_size=50 -attack_size=50 -stride=50 -stepsize=0.5 -metabatch_size=10 -model=bagnet17
+sudo python3 generate_new_metabatch.py -rand_init=True -N=500 -seed=42 -nb_iter=10 -attack_size=45 -attack_size=45 -stride=45 -stepsize=0.5 -metabatch_size=10 -model=bagnet17
+sudo python3 generate_new_metabatch.py -rand_init=True -N=500 -seed=42 -nb_iter=10 -attack_size=40 -attack_size=40 -stride=40 -stepsize=0.5 -metabatch_size=10 -model=bagnet17
+sudo python3 generate_new_metabatch.py -rand_init=True -N=500 -seed=42 -nb_iter=10 -attack_size=35 -attack_size=35 -stride=35 -stepsize=0.5 -metabatch_size=10 -model=bagnet17
+sudo python3 generate_new_metabatch.py -rand_init=True -N=500 -seed=42 -nb_iter=10 -attack_size=30 -attack_size=30 -stride=30 -stepsize=0.5 -metabatch_size=10 -model=bagnet17
+sudo python3 generate_new_metabatch.py -rand_init=True -N=500 -seed=42 -nb_iter=10 -attack_size=25 -attack_size=25 -stride=25 -stepsize=0.5 -metabatch_size=10 -model=bagnet17
+sudo python3 generate_new_metabatch.py -rand_init=True -N=500 -seed=42 -nb_iter=10 -attack_size=15 -attack_size=15 -stride=15 -stepsize=0.5 -metabatch_size=10 -model=bagnet17
+sudo python3 generate_new_metabatch.py -rand_init=True -N=500 -seed=42 -nb_iter=10 -attack_size=10 -attack_size=10 -stride=10 -stepsize=0.5 -metabatch_size=10 -model=bagnet17
 
