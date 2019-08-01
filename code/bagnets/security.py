@@ -421,6 +421,66 @@ def get_security_upper_bound2(bagnet33, data_loader,
     succ_prob = num_invariant / total_images
     return succ_prob
 
+def foolbox_upper_bound(model, data_loader, 
+                        attack_alg, attack_size, clip, a, b, 
+                        stride=1, k = 5, max_iter = 40, return_early = True,
+                        mean = np.array([0.485, 0.456, 0.406]).reshape((3, 1, 1)), 
+                        std = np.array([0.229, 0.224, 0.225]).reshape((3, 1, 1)), 
+                        output_path = './results'):
+    """ Take in a pytorch data loader, use the ATTACK_ALG to
+        calculate the security upper bound.
+    Input:
+    - bagnet33 (pytorch model): Bagnet-33 without average pooling
+    - data_loader (pytorch DataLoader): pytorch dataloader in CPU, without normalization, pixel ~ [0, 1]
+    - attack_alg (foolbox.attack): attack algorithm implemented in foolbox
+    - clip (function): clipping function in clipping.py
+    - a, b (float): clipping parameters
+    - stride (int): stride of how stickers move
+    - k (int): top-k misclassification criteria
+    - mean, std (numpy array): mean and standard devication of dataset
+    - output_path (str): directory for saving resulting plots
+    Output:
+    - succ_prob (float): fraction of images whose prediction are not affected by the attack
+    """
+    assert os.path.isdir(output_path) and os.path.exists(output_path), 'Please make sure that the output directory exists.'
+    affected_imgs, total_images = 0, 0
+    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], 
+                                     std=[0.229, 0.224, 0.225])
+    distance = FakeZeroDistance
+    criterion = TopKMisclassification(k)
+    for images, labels in data_loader:
+        n, c, h, w = images.shape
+        total_images += n
+        numpy_images = images.numpy()
+        labels = labels.numpy()
+        for i in range(n):
+            label = labels[i]
+            flag = True
+            norm_image = normalize(images[i])
+            for x in range(0, h - attack_size[0] + 1, stride):
+                for y in range(0, w - attack_size[1] + 1, stride):
+                    fmodel = foolbox.models.PyTorchModel(model, bounds=(0, 1), num_classes=1000, preprocessing=(mean, std))
+                    subimg = get_subimg(numpy_images[i], (x, y), attack_size)
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("ignore")
+                        adv = Adversarial(fbagnet33, criterion, subimg, label, distance=distance)
+                        attack_alg(adv, iterations = max_iter)
+                        adversarial = adv.perturbed
+                    if adversarial is not None:
+                        print('Image {}, attack successfully, location {}'.format(i, (x, y)))
+                        plt_name = 'img_{}_size_{}-{}_loc_{}-{}.png'.format(i, attack_size[0], attack_size[1], x, y)
+                        print_attack_result(wrapped_bagnet33, subimg, adversarial, os.path.join(output_path, plt_name))
+                        affected_imgs += 1
+                        flag = False
+                        break
+                    else:
+                        print('Image {}: fail to find an adversarial sticker at {}'.format(i, (x, y)))
+                if not flag:
+                    break
+    num_invariant = total_images - affected_imgs
+    succ_prob = num_invariant / total_images
+    return succ_prob
+
 ######################################################
 # Advertorch Metabatch Upper Bound
 ######################################################

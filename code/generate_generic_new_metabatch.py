@@ -76,7 +76,7 @@ def main(argv):
     imagenet_val = datasets.ImageNet(FLAGS.data_path, split='val', download=False,
                                          transform=imagenet_transform)
 
-    val_subset_indices = image_partition(42, 500)[FLAGS.chunkid]
+    val_subset_indices = image_partition(42, FLAGS.N)[FLAGS.chunkid]
     val_subset_loader = torch.utils.data.DataLoader(imagenet_val,
                                                     batch_size=1,
                                                     num_workers=4,
