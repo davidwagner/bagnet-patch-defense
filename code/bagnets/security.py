@@ -175,15 +175,29 @@ def get_security_lower_bound(bagnet, data_loader, attack_size, clip, stride=1, b
 # Security Upper Bound
 #########################################
 
+def apply_sticker(adv, img, loc, size):
+    """
+    Input:
+    - adv (np array): adversarial sticker, shape=(3, h, w), pixel ~ (0, 1)
+    - img (np array): original image, shape=(3, 224, 224), pixel ~ (0, 1)
+    - loc (list):
+    - size (int):
+    """
+    x1, y1 = loc
+    x2, y2 = x1 + size[0], y1 + size[1]
+    sticker = np.zeros_like(img).astype(img.dtype)
+    mask = np.ones_like(img).astype(img.dtype)
+    mask[:, x1:x2, y1:y2] = 0.
+    img = img * mask
+    return img + sticker
+
 class PatchAttackWrapper(nn.Module):
-    mean = torch.Tensor([0.485, 0.456, 0.406]).view((3, 1, 1))
-    std = torch.Tensor([0.229, 0.224, 0.225]).view((3, 1, 1))
     
-    def __init__(self, model, img, size, loc, clip, a, b):
+    def __init__(self, model, img, size, loc, clip_fn, a=None, b=None):
         super(PatchAttackWrapper, self).__init__()
         self.batch_size = img.shape[0]
         self.model = model
-        self.clip = clip
+        self.clip_fn = clip_fn
         self.a = a
         self.b = b
         self.x1, self.y1 = loc
@@ -191,41 +205,16 @@ class PatchAttackWrapper(nn.Module):
         self.mask = torch.ones((1, 3, 224, 224))
         self.mask[:, :, self.x1:self.x2, self.y1:self.y2] = 0
         self.img = (self.mask*img).cuda()
-        self.img.requires_grad = False
     
     def forward(self, subimg):
         sticker = self._make_sticker(subimg)
         attacked_img = self.img + sticker
-        clipped_patch_logits = self._clip_logits(attacked_img, a = self.a, b = self.b)
-        clipped_class_logits = torch.mean(clipped_patch_logits, dim=(1, 2))
-        return clipped_class_logits
+        logits = self.model(attacked_img)
+        if self.clip_fn:
+            logits = self.clip_fn(logits, a=self.a, b=self.b)
+        logits = torch.mean(logits, dim=(1, 2))
+        return logits
     
-    def undo_preprocess(self):
-        undo_img = self.img[0].cpu() * self.std
-        undo_img += self.mean
-        undo_img *= self.mask[0]
-        return undo_img
-    
-    def apply_sticker(self, adversarial):
-        """ Apply an adversarial sticker to the original image
-        Input:
-        - adversarial (numpy array): shape = (3, (sticker size)) pixel values in [0, 1]
-        """
-        sticker = np.zeros((3, 224, 224))
-        sticker[:, self.x1:self.x2, self.y1:self.y2] = adversarial
-        # undo preprocessing
-        attacked_img = self.img[0].cpu().numpy()
-        attacked_img *= self.std.numpy()
-        attacked_img += self.mean.numpy()
-        attacked_img *= self.mask[0].numpy()
-        # apply sticker
-        attacked_img += sticker
-        return attacked_img
-    
-    def _clip_logits(self, attacked_img, **kwargs):
-        patch_logits = self.model(attacked_img)
-        return self.clip(patch_logits, **kwargs)
-        
     def _make_sticker(self, subimg):
         sticker = torch.zeros((1, 3, 224, 224)).cuda()
         sticker[:, :, self.x1:self.x2, self.y1:self.y2] = subimg
@@ -259,93 +248,55 @@ def get_subimg(image, loc, size):
     x2, y2 = x1 + size[0], y1 + size[1]
     return image[:, x1:x2, y1:y2]
 
-def print_attack_result(wrapper, subimg, adversarial, attacked_img, output_path):
-    """Print the masked image, subimage, and adversarial patch
-    Input:
-    - wrapper (an instance of PatchAttackWrapper): a model wrapper
-    - subimg (numpy array): subimg, shape = (3, h, w)
-    - adversarial (numpy array): adversarial patch, shape = (3, h, w)
-    """
-    plt.imshow(convert2channel_last(attacked_img))
-    plt.axis('off')
-    plt.show()
-    plt.imsave(output_path+'_att.png', convert2channel_last(attacked_img))
-    fig = plt.figure(figsize=(16, 8))
-    ax = plt.subplot(141)
-    ax.set_title('masked image')
-    plt.imshow(convert2channel_last(wrapper.undo_preprocess().cpu().numpy()))
-    ax = plt.subplot(142)
-    ax.set_title('original')
-    plt.imshow(convert2channel_last(subimg))
-    ax = plt.subplot(143)
-    ax.set_title('adversarial')
-    plt.imshow(convert2channel_last(adversarial))
-    ax = plt.subplot(144)
-    ax.set_title('difference (x500)')
-    plt.imshow(convert2channel_last(np.abs(subimg - adversarial)))
-    plt.savefig(output_path+'.png')
-    plt.show()
-
-class FakeZeroDistance(Distance):
-    def _calculate(self):
-        return 0, None
-
-def get_security_upper_bound(bagnet33, images, labels, 
-                             attack_alg, attack_size, clip, a, b, 
-                             wrapper=PatchAttackWrapper, stride=1, k = 5, 
-                             binary_search=True, epsilon=0.3, stepsize=0.01, max_iter = 40, 
-                             mean = np.array([0.485, 0.456, 0.406]).reshape((3, 1, 1)), 
-                             std = np.array([0.229, 0.224, 0.225]).reshape((3, 1, 1)), 
-                             output_path = './results', log_path='./log'):
-    """ Given a batch of IMAGES and corresponding LABELS, use the ATTACK_ALG to
+def foolbox_upper_bound(model, data_loader, attack_size, clip_fn, a, b, stride=1, k = 5, 
+                        max_iter = 20, eps = 5, stepsize=0.25, return_early = True, random_start=True,
+                        mean = np.array([0.485, 0.456, 0.406]).reshape((3, 1, 1)), 
+                        std = np.array([0.229, 0.224, 0.225]).reshape((3, 1, 1)), 
+                        output_root = './results'):
+    """ Take in a pytorch data loader, use the ATTACK_ALG to
         calculate the security upper bound.
     Input:
-    - bagnet33 (pytorch model): Bagnet-33 without average pooling
-    - images (numpy array): sampled images given by the foolbox from ImageNet 
-        without preprocessing, pixel values 0 ~ 255
-    - labels (numpy array): labels of images
+    - model (pytorch model): model wrapped for sticker attack 
+    - data_loader (pytorch DataLoader): batchsize=1, pytorch dataloader in CPU, without normalization, pixel ~ [0, 1]
     - attack_alg (foolbox.attack): attack algorithm implemented in foolbox
-    - clip (function): clipping function in clipping.py
-    - a, b (float): clipping parameters
     - stride (int): stride of how stickers move
     - k (int): top-k misclassification criteria
     - mean, std (numpy array): mean and standard devication of dataset
     - output_path (str): directory for saving resulting plots
-    - log_path (str): directory for logging file
     Output:
     - succ_prob (float): fraction of images whose prediction are not affected by the attack
     """
-    assert os.path.isdir(output_path) and os.path.exists(output_path), 'Please make sure that the output directory exists.'
-    n, c, h, w = images.shape
-    images_tensor = imagenet_preprocess(images)
-    images_tensor = torch.from_numpy(images_tensor)
-    images = images / 255.  # because our model expects values in [0, 1]
-    affected_imgs  = 0
-    distance = FakeZeroDistance
+    affected_imgs, total_images = 0, 0
+    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], 
+                                     std=[0.229, 0.224, 0.225])
     criterion = TopKMisclassification(k)
-    for i in range(n):
-        label = labels[i]
+    for i, (images, labels) in enumerate(data_loader):
+        image, label = images[0].numpy(), labels[0].item()
+        c, h, w = image.shape
+        total_images += 1
         flag = True
         for x in range(0, h - attack_size[0] + 1, stride):
             for y in range(0, w - attack_size[1] + 1, stride):
-                if log_path:
-                    assert os.path.isdir(log_path) and os.path.exists(log_path), 'Please make sure that the logging directory exists.'
-                    INFO_LOG_FILENAME = os.path.join(log_path, 'img-{}_info-logging.log'.format(i))
-                    logging.basicConfig(filename=INFO_LOG_FILENAME, level=logging.INFO)
-                wrapped_bagnet33 = wrapper(bagnet33, images_tensor[i][None], 
-                                                      attack_size, (x, y), 
-                                                      clip, a, b).cuda()
-                wrapped_bagnet33.eval()
-                fbagnet33 = foolbox.models.PyTorchModel(wrapped_bagnet33, bounds=(0, 1), num_classes=1000, preprocessing=(mean, std))
-                subimg = get_subimg(images[i], (x, y), attack_size)
-                adv = Adversarial(fbagnet33, criterion, subimg, label, distance=distance)
-                attack_alg(adv, binary_search=binary_search, stepsize=0.01, iterations = max_iter)
-                adversarial = adv.perturbed
+                fmodel = PatchAttackWrapper(model, images[:], attack_size, (x, y), clip_fn, a, b)
+                fmodel.eval()
+                print('image {}, current location: {}'.format(i, (x, y)))
+                fmodel = foolbox.models.PyTorchModel(fmodel, bounds=(0, 1), num_classes=1000, preprocessing=(mean, std))
+                attack = PGD(fmodel, criterion=TopKMisclassification(k), distance=foolbox.distances.Linfinity)
+                subimg = get_subimg(image, (x, y), attack_size)
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    adversarial = attack(subimg, label, iterations = max_iter, epsilon=eps, stepsize=stepsize, random_start=random_start, return_early=return_early, binary_search=False)
+                    
                 if adversarial is not None:
-                    print('Image {}, attack successfully, location {}'.format(i, (x, y)))
-                    plt_name = 'img_{}_size_{}-{}_loc_{}-{}'.format(i, attack_size[0], attack_size[1], x, y)
-                    attacked_img = wrapped_bagnet33.apply_sticker(adversarial)
-                    print_attack_result(wrapped_bagnet33, subimg, adversarial, attacked_img, os.path.join(output_path, plt_name))
+                    msg = 'Image {}, attack successfully, location {}'.format(i, (x, y))
+                    print(msg)
+                    logging.info(msg)
+                    plt_name = '{}.png'.format(total_images)
+                    save_path = os.path.join(output_root, str(label))
+                    if not os.path.exists(save_path):
+                        os.mkdir(save_path)
+                    attacked_img = apply_sticker(adversarial, image, (x, y), attack_size).transpose([1, 2, 0])
+                    plt.imsave(os.path.join(save_path, plt_name), attacked_img)
                     affected_imgs += 1
                     flag = False
                     break
@@ -353,130 +304,6 @@ def get_security_upper_bound(bagnet33, images, labels,
                     print('Image {}: fail to find an adversarial sticker at {}'.format(i, (x, y)))
             if not flag:
                 break
-    num_invariant = n - affected_imgs
-    succ_prob = num_invariant / n
-    return succ_prob
-# pytorch loader version
-def get_security_upper_bound2(bagnet33, data_loader, 
-                             attack_alg, attack_size, clip, a, b, 
-                             stride=1, k = 5, max_iter = 40,
-                             mean = np.array([0.485, 0.456, 0.406]).reshape((3, 1, 1)), 
-                             std = np.array([0.229, 0.224, 0.225]).reshape((3, 1, 1)), 
-                             output_path = './results'):
-    """ Take in a pytorch data loader, use the ATTACK_ALG to
-        calculate the security upper bound.
-    Input:
-    - bagnet33 (pytorch model): Bagnet-33 without average pooling
-    - data_loader (pytorch DataLoader): pytorch dataloader in CPU, without normalization, pixel ~ [0, 1]
-    - attack_alg (foolbox.attack): attack algorithm implemented in foolbox
-    - clip (function): clipping function in clipping.py
-    - a, b (float): clipping parameters
-    - stride (int): stride of how stickers move
-    - k (int): top-k misclassification criteria
-    - mean, std (numpy array): mean and standard devication of dataset
-    - output_path (str): directory for saving resulting plots
-    Output:
-    - succ_prob (float): fraction of images whose prediction are not affected by the attack
-    """
-    assert os.path.isdir(output_path) and os.path.exists(output_path), 'Please make sure that the output directory exists.'
-    affected_imgs, total_images = 0, 0
-    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], 
-                                     std=[0.229, 0.224, 0.225])
-    distance = FakeZeroDistance
-    criterion = TopKMisclassification(k)
-    for images, labels in data_loader:
-        n, c, h, w = images.shape
-        total_images += n
-        numpy_images = images.numpy()
-        labels = labels.numpy()
-        for i in range(n):
-            label = labels[i]
-            flag = True
-            norm_image = normalize(images[i])
-            for x in range(0, h - attack_size[0] + 1, stride):
-                for y in range(0, w - attack_size[1] + 1, stride):
-                    wrapped_bagnet33 = PatchAttackWrapper(bagnet33, norm_image[None], 
-                                                          attack_size, (x, y), 
-                                                          clip, a, b).cuda()
-                    wrapped_bagnet33.eval()
-                    fbagnet33 = foolbox.models.PyTorchModel(wrapped_bagnet33, bounds=(0, 1), num_classes=1000, preprocessing=(mean, std))
-                    subimg = get_subimg(numpy_images[i], (x, y), attack_size)
-                    with warnings.catch_warnings():
-                        warnings.simplefilter("ignore")
-                        adv = Adversarial(fbagnet33, criterion, subimg, label, distance=distance)
-                        attack_alg(adv, iterations = max_iter)
-                        adversarial = adv.perturbed
-                    if adversarial is not None:
-                        print('Image {}, attack successfully, location {}'.format(i, (x, y)))
-                        plt_name = 'img_{}_size_{}-{}_loc_{}-{}.png'.format(i, attack_size[0], attack_size[1], x, y)
-                        print_attack_result(wrapped_bagnet33, subimg, adversarial, os.path.join(output_path, plt_name))
-                        affected_imgs += 1
-                        flag = False
-                        break
-                    else:
-                        print('Image {}: fail to find an adversarial sticker at {}'.format(i, (x, y)))
-                if not flag:
-                    break
-    num_invariant = total_images - affected_imgs
-    succ_prob = num_invariant / total_images
-    return succ_prob
-
-def foolbox_upper_bound(model, data_loader, 
-                        attack_alg, attack_size, clip, a, b, 
-                        stride=1, k = 5, max_iter = 40, return_early = True,
-                        mean = np.array([0.485, 0.456, 0.406]).reshape((3, 1, 1)), 
-                        std = np.array([0.229, 0.224, 0.225]).reshape((3, 1, 1)), 
-                        output_path = './results'):
-    """ Take in a pytorch data loader, use the ATTACK_ALG to
-        calculate the security upper bound.
-    Input:
-    - bagnet33 (pytorch model): Bagnet-33 without average pooling
-    - data_loader (pytorch DataLoader): pytorch dataloader in CPU, without normalization, pixel ~ [0, 1]
-    - attack_alg (foolbox.attack): attack algorithm implemented in foolbox
-    - clip (function): clipping function in clipping.py
-    - a, b (float): clipping parameters
-    - stride (int): stride of how stickers move
-    - k (int): top-k misclassification criteria
-    - mean, std (numpy array): mean and standard devication of dataset
-    - output_path (str): directory for saving resulting plots
-    Output:
-    - succ_prob (float): fraction of images whose prediction are not affected by the attack
-    """
-    assert os.path.isdir(output_path) and os.path.exists(output_path), 'Please make sure that the output directory exists.'
-    affected_imgs, total_images = 0, 0
-    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], 
-                                     std=[0.229, 0.224, 0.225])
-    distance = FakeZeroDistance
-    criterion = TopKMisclassification(k)
-    for images, labels in data_loader:
-        n, c, h, w = images.shape
-        total_images += n
-        numpy_images = images.numpy()
-        labels = labels.numpy()
-        for i in range(n):
-            label = labels[i]
-            flag = True
-            norm_image = normalize(images[i])
-            for x in range(0, h - attack_size[0] + 1, stride):
-                for y in range(0, w - attack_size[1] + 1, stride):
-                    fmodel = foolbox.models.PyTorchModel(model, bounds=(0, 1), num_classes=1000, preprocessing=(mean, std))
-                    subimg = get_subimg(numpy_images[i], (x, y), attack_size)
-                    with warnings.catch_warnings():
-                        warnings.simplefilter("ignore")
-                        adv = Adversarial(fbagnet33, criterion, subimg, label, distance=distance)
-                        attack_alg(adv, iterations = max_iter)
-                        adversarial = adv.perturbed
-                    if adversarial is not None:
-                        print('Image {}, attack successfully, location {}'.format(i, (x, y)))
-                        plt_name = 'img_{}_size_{}-{}_loc_{}-{}.png'.format(i, attack_size[0], attack_size[1], x, y)
-                        print_attack_result(wrapped_bagnet33, subimg, adversarial, os.path.join(output_path, plt_name))
-                        affected_imgs += 1
-                        flag = False
-                        break
-                    else:
-                        print('Image {}: fail to find an adversarial sticker at {}'.format(i, (x, y)))
-                if not flag:
-                    break
     num_invariant = total_images - affected_imgs
     succ_prob = num_invariant / total_images
     return succ_prob
