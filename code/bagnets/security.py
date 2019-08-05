@@ -172,87 +172,15 @@ def get_security_lower_bound(bagnet, data_loader, attack_size, clip, stride=1, b
     return succ_prob
 
 #########################################
-# Security Upper Bound
+# Security Upper Bound (Foolbox)
 #########################################
 
-def apply_sticker(adv, img, loc, size):
-    """
-    Input:
-    - adv (np array): adversarial sticker, shape=(3, h, w), pixel ~ (0, 1)
-    - img (np array): original image, shape=(3, 224, 224), pixel ~ (0, 1)
-    - loc (list):
-    - size (int):
-    """
-    x1, y1 = loc
-    x2, y2 = x1 + size[0], y1 + size[1]
-    sticker = np.zeros_like(img).astype(img.dtype)
-    mask = np.ones_like(img).astype(img.dtype)
-    mask[:, x1:x2, y1:y2] = 0.
-    img = img * mask
-    return img + sticker
-
-class PatchAttackWrapper(nn.Module):
-    
-    def __init__(self, model, img, size, loc, clip_fn, a=None, b=None):
-        super(PatchAttackWrapper, self).__init__()
-        self.batch_size = img.shape[0]
-        self.model = model
-        self.clip_fn = clip_fn
-        self.a = a
-        self.b = b
-        self.x1, self.y1 = loc
-        self.x2, self.y2 = self.x1 + size[0], self.y1 + size[1]
-        self.mask = torch.ones((1, 3, 224, 224))
-        self.mask[:, :, self.x1:self.x2, self.y1:self.y2] = 0
-        self.img = (self.mask*img).cuda()
-    
-    def forward(self, subimg):
-        sticker = self._make_sticker(subimg)
-        attacked_img = self.img + sticker
-        logits = self.model(attacked_img)
-        if self.clip_fn:
-            logits = self.clip_fn(logits, a=self.a, b=self.b)
-        logits = torch.mean(logits, dim=(1, 2))
-        return logits
-    
-    def _make_sticker(self, subimg):
-        sticker = torch.zeros((1, 3, 224, 224)).cuda()
-        sticker[:, :, self.x1:self.x2, self.y1:self.y2] = subimg
-        return sticker
-    
-def get_subimgs(images, loc, size):
-    """Take an of IMAGES, location LOC and SIZE of stickers, 
-        return the sub-image that are for adversarial stickers
-    Input:
-    - image (numpy array): images, shape = (n, 3, 224, 224)
-    - loc (tuple): (x1, y1) coordinate of the upper-left corner of stickers
-    - size (tuple): (w, h) width and height of stickers
-    Output: 
-    -subimage (numpy array): subimage shape = (n, 3, w, h)
-    """
-    x1, y1 = loc
-    x2, y2 = x1 + size[0], y1 + size[1]
-    return images[:, :, x1:x2, y1:y2]
-
-def get_subimg(image, loc, size):
-    """Take an of IMAGES, location LOC and SIZE of stickers, 
-        return the sub-image that are for adversarial stickers
-    Input:
-    - image (numpy array): images, shape = (3, 224, 224)
-    - loc (tuple): (x1, y1) coordinate of the upper-left corner of stickers
-    - size (tuple): (w, h) width and height of stickers
-    Output: 
-    -subimage (numpy array): subimage shape = (3, w, h)
-    """
-    x1, y1 = loc
-    x2, y2 = x1 + size[0], y1 + size[1]
-    return image[:, x1:x2, y1:y2]
-
-def foolbox_upper_bound(model, data_loader, attack_size, clip_fn, a, b, stride=1, k = 5, 
-                        max_iter = 20, eps = 5, stepsize=0.25, return_early = True, random_start=True,
-                        mean = np.array([0.485, 0.456, 0.406]).reshape((3, 1, 1)), 
-                        std = np.array([0.229, 0.224, 0.225]).reshape((3, 1, 1)), 
-                        output_root = './results'):
+def foolbox_upper_bound(model, wrapper, data_loader, attack_size, 
+                        clip_fn, a=None, b=None, stride=1, k=5, 
+                        max_iter=40, eps=1, stepsize=0.5, return_early=True, random_start=True,
+                        mean=np.array([0.485, 0.456, 0.406]).reshape((3, 1, 1)), 
+                        std=np.array([0.229, 0.224, 0.225]).reshape((3, 1, 1)), 
+                        output_root = './foolbox_results'):
     """ Take in a pytorch data loader, use the ATTACK_ALG to
         calculate the security upper bound.
     Input:
@@ -267,20 +195,20 @@ def foolbox_upper_bound(model, data_loader, attack_size, clip_fn, a, b, stride=1
     - succ_prob (float): fraction of images whose prediction are not affected by the attack
     """
     affected_imgs, total_images = 0, 0
-    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], 
+    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                      std=[0.229, 0.224, 0.225])
-    criterion = TopKMisclassification(k)
-    for i, (images, labels) in enumerate(data_loader):
+    for images, labels in data_loader:
+        prep_images = normalize(images[0])[None]
         image, label = images[0].numpy(), labels[0].item()
         c, h, w = image.shape
         total_images += 1
         flag = True
         for x in range(0, h - attack_size[0] + 1, stride):
             for y in range(0, w - attack_size[1] + 1, stride):
-                fmodel = PatchAttackWrapper(model, images[:], attack_size, (x, y), clip_fn, a, b)
-                fmodel.eval()
-                print('image {}, current location: {}'.format(i, (x, y)))
-                fmodel = foolbox.models.PyTorchModel(fmodel, bounds=(0, 1), num_classes=1000, preprocessing=(mean, std))
+                wrapped_model = wrapper(model, prep_images, attack_size, (x, y), clip_fn, a, b)
+                wrapped_model.eval()
+                print('image {}, current location: {}'.format(total_images, (x, y)))
+                fmodel = foolbox.models.PyTorchModel(wrapped_model, bounds=(0, 1), num_classes=1000, preprocessing=(mean, std))
                 attack = PGD(fmodel, criterion=TopKMisclassification(k), distance=foolbox.distances.Linfinity)
                 subimg = get_subimg(image, (x, y), attack_size)
                 with warnings.catch_warnings():
@@ -288,7 +216,7 @@ def foolbox_upper_bound(model, data_loader, attack_size, clip_fn, a, b, stride=1
                     adversarial = attack(subimg, label, iterations = max_iter, epsilon=eps, stepsize=stepsize, random_start=random_start, return_early=return_early, binary_search=False)
                     
                 if adversarial is not None:
-                    msg = 'Image {}, attack successfully, location {}'.format(i, (x, y))
+                    msg = 'Image {}, attack successfully, location {}'.format(total_images, (x, y))
                     print(msg)
                     logging.info(msg)
                     plt_name = '{}.png'.format(total_images)
@@ -301,12 +229,67 @@ def foolbox_upper_bound(model, data_loader, attack_size, clip_fn, a, b, stride=1
                     flag = False
                     break
                 else:
-                    print('Image {}: fail to find an adversarial sticker at {}'.format(i, (x, y)))
+                    print('Image {}: fail to find an adversarial sticker at {}'.format(total_images, (x, y)))
             if not flag:
                 break
     num_invariant = total_images - affected_imgs
     succ_prob = num_invariant / total_images
     return succ_prob
+
+def apply_sticker(adv, img, loc, size):
+    """
+    Input:
+    - adv (np array): adversarial sticker, shape=(3, h, w), pixel ~ (0, 1)
+    - img (np array): original image, shape=(3, 224, 224), pixel ~ (0, 1)
+    - loc (list):
+    - size (int):
+    """
+    x1, y1 = loc
+    x2, y2 = x1 + size[0], y1 + size[1]
+    sticker = np.zeros_like(img).astype(img.dtype)
+    sticker[:, x1:x2, y1:y2] = adv
+    mask = np.ones_like(img).astype(img.dtype)
+    mask[:, x1:x2, y1:y2] = 0.
+    img = img * mask
+    return img + sticker
+
+class PatchAttackWrapper(nn.Module):
+    
+    def __init__(self, model, img, size, loc, clip_fn=None, a=None, b=None):
+        super(PatchAttackWrapper, self).__init__()
+        self.batch_size = img.shape[0]
+        self.model = model
+        self.x1, self.y1 = loc
+        self.x2, self.y2 = self.x1 + size[0], self.y1 + size[1]
+        mask = torch.ones((1, 3, 224, 224))
+        mask[:, :, self.x1:self.x2, self.y1:self.y2] = 0
+        self.img = (mask*img).cuda()
+    
+    def forward(self, subimg):
+        sticker = self._make_sticker(subimg)
+        attacked_img = self.img + sticker
+        logits = self.model(attacked_img)
+        return logits
+    
+    def _make_sticker(self, subimg):
+        sticker = torch.zeros((1, 3, 224, 224)).cuda()
+        sticker[:, :, self.x1:self.x2, self.y1:self.y2] = subimg
+        return sticker
+
+class ClippedPatchAttackWrapper(PatchAttackWrapper):
+    def __init__(self, model, img, size, loc, clip_fn, a=None, b=None):
+        super().__init__(model, img, size, loc)
+        self.clip_fn = clip_fn
+        self.a = a
+        self.b = b
+
+    def forward(self, subimg):
+        sticker = self._make_sticker(subimg)
+        attacked_img = self.img + sticker
+        logits = self.clip_fn(self.model(attacked_img), self.a, self.b)
+        logits = torch.mean(logits, dim=(1, 2))
+        return logits
+
 
 ######################################################
 # Advertorch Metabatch Upper Bound
