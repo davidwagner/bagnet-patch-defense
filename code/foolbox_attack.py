@@ -18,6 +18,7 @@ import json
 FLAGS = flags.FLAGS
 flags.DEFINE_integer('N', 500, 'number of images')
 flags.DEFINE_boolean('rand_init', True, 'randomly init stickers')
+flags.DEFINE_boolean('return_early', True, 'early return')
 flags.DEFINE_integer('chunkid', 10, 'index of partition chunk')
 flags.DEFINE_multi_integer('attack_size', [20, 20], 'size of sticker')
 flags.DEFINE_integer('stride', 20, 'stride of sticker')
@@ -39,7 +40,7 @@ def main(argv):
             [NAME].log
             dataset/
     """
-    NAME = '{}-{}-{}x{}-{}-{}-{}-{}-{}'.format(FLAGS.N, FLAGS.chunkid, FLAGS.attack_size[0], FLAGS.attack_size[1], FLAGS.stride, FLAGS.model, FLAGS.eps, FLAGS.nb_iter, FLAGS.stepsize)
+    NAME = '{}-{}-{}x{}-{}-{}-{}-{}-{}-{}'.format(FLAGS.N, FLAGS.chunkid, FLAGS.attack_size[0], FLAGS.attack_size[1], FLAGS.stride, FLAGS.model, FLAGS.clip_fn, FLAGS.eps, FLAGS.nb_iter, FLAGS.stepsize)
     OUTPUT_PATH = os.path.join(FLAGS.output_root, NAME)
     print(OUTPUT_PATH)
 
@@ -53,7 +54,7 @@ def main(argv):
 
     logger = logging.basicConfig(filename=LOG_PATH, level=logging.INFO)
     logging.info(strftime("%Y-%m-%d %H:%M:%S", gmtime()))
-    logging.info("Setting:\n N: {}, chunk id: {}, attack_size: {}x{}, stride: {}, model: {}, eps: {}, nb_iter: {}, stepsize: {}".format(FLAGS.N, FLAGS.chunkid, FLAGS.attack_size[0], FLAGS.attack_size[1], FLAGS.stride, FLAGS.model, FLAGS.eps, FLAGS.nb_iter, FLAGS.stepsize))
+    logging.info("Setting:\n N: {}, chunk id: {}, attack_size: {}x{}, stride: {}, model: {}, clip_fn: {},  eps: {}, nb_iter: {}, stepsize: {}".format(FLAGS.N, FLAGS.chunkid, FLAGS.attack_size[0], FLAGS.attack_size[1], FLAGS.stride, FLAGS.model, FLAGS.clip_fn, FLAGS.eps, FLAGS.nb_iter, FLAGS.stepsize))
     ###################################
     # Model and data preparation
     ###################################
@@ -121,6 +122,9 @@ def main(argv):
         for image, label in val_subset_loader:
             image = image.to(device)
             logit = model(image)
+            if FLAGS.model in ["bagnet9", "bagnet17", "bagnet33"] and model.avg_pool == False: # if apply clipping function
+                logits = clip_fn(logits, FLAGS.a, FLAGS.b)
+                logits = torch.mean(logits, dim=(1, 2))
             _, topk = torch.topk(logit, k=5, dim=1)
             topk, label = topk.cpu().numpy()[0], label.numpy()[0]
             if label in topk:

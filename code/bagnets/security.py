@@ -6,7 +6,9 @@ import torch
 import torch.nn as nn
 from bagnets.utils import *
 from bagnets.clipping import *
+import torchvision.transforms as transforms
 import foolbox
+from foolbox.attacks import ProjectedGradientDescentAttack as PGD
 from foolbox.criteria import TopKMisclassification
 from foolbox.distances import Distance
 from foolbox.adversarial import Adversarial
@@ -174,7 +176,32 @@ def get_security_lower_bound(bagnet, data_loader, attack_size, clip, stride=1, b
 #########################################
 # Security Upper Bound (Foolbox)
 #########################################
-
+def get_subimgs(images, loc, size):
+        """Take an of IMAGES, location LOC and SIZE of stickers, 
+                return the sub-image that are for adversarial stickers
+                Input:
+                        - image (numpy array): images, shape = (n, 3, 224, 224)
+                            - loc (tuple): (x1, y1) coordinate of the upper-left corner of stickers
+                                - size (tuple): (w, h) width and height of stickers
+                                    Output: 
+                                        -subimage (numpy array): subimage shape = (n, 3, w, h)
+                                            """
+                                                x1, y1 = loc
+                                                    x2, y2 = x1 + size[0], y1 + size[1]
+                                                        return images[:, :, x1:x2, y1:y2]
+def get_subimg(image, loc, size):
+        """Take an of IMAGES, location LOC and SIZE of stickers, 
+                return the sub-image that are for adversarial stickers
+                Input:
+                        - image (numpy array): images, shape = (3, 224, 224)
+                            - loc (tuple): (x1, y1) coordinate of the upper-left corner of stickers
+                                - size (tuple): (w, h) width and height of stickers
+                                    Output: 
+                                        -subimage (numpy array): subimage shape = (3, w, h)
+                                            """
+                                                x1, y1 = loc
+                                                    x2, y2 = x1 + size[0], y1 + size[1]
+                                                        return image[:, x1:x2, y1:y2]
 def foolbox_upper_bound(model, wrapper, data_loader, attack_size, 
                         clip_fn, a=None, b=None, stride=1, k=5, 
                         max_iter=40, eps=1, stepsize=0.5, return_early=True, random_start=True,
