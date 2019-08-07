@@ -46,9 +46,7 @@ def main(argv):
 
     if not os.path.exists(OUTPUT_PATH):
                 os.mkdir(OUTPUT_PATH)
-    if not os.path.exists(os.path.join(OUTPUT_PATH, "dataset")):
-                os.mkdir(os.path.join(OUTPUT_PATH, "dataset"))
-
+    
     LOG_PATH = os.path.join(OUTPUT_PATH, NAME+'.log')
     print("log to {}".format(LOG_PATH))
 
@@ -116,15 +114,19 @@ def main(argv):
     #####################################
     # Start attacking
     #####################################
+    imagenet_mean = torch.Tensor([0.485, 0.456, 0.406]).view((3, 1, 1))
+    imagenet_std = torch.Tensor([0.229, 0.224, 0.225]).view((3, 1, 1))
     print("Start attacking...")
     with torch.no_grad():
         count = 0
         for image, label in val_subset_loader:
+            image = image - imagenet_mean
+            image = image / imagenet_std
             image = image.to(device)
             logit = model(image)
             if FLAGS.model in ["bagnet9", "bagnet17", "bagnet33"] and model.avg_pool == False: # if apply clipping function
-                logits = clip_fn(logits, FLAGS.a, FLAGS.b)
-                logits = torch.mean(logits, dim=(1, 2))
+                logit = clip_fn(logit, FLAGS.a, FLAGS.b)
+                logit = torch.mean(logit, dim=(1, 2))
             _, topk = torch.topk(logit, k=5, dim=1)
             topk, label = topk.cpu().numpy()[0], label.numpy()[0]
             if label in topk:

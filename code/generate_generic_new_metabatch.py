@@ -27,7 +27,7 @@ flags.DEFINE_integer('nb_iter', 10, 'number of iterations for PGD')
 flags.DEFINE_float('stepsize', 0.5, 'stepsize of PGD')
 flags.DEFINE_integer('metabatch_size', 10, 'metabatch size')
 flags.DEFINE_string('data_path', '/mnt/data/imagenet', 'data directory')
-flags.DEFINE_string('output_root', '/mnt/data/results/', 'directory for storing results')
+flags.DEFINE_string('output_root', '/mnt/data/results/advertorch_results', 'directory for storing results')
 
 def main(argv):
     """

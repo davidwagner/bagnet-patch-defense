@@ -224,10 +224,11 @@ def foolbox_upper_bound(model, wrapper, data_loader, attack_size,
     - succ_prob (float): fraction of images whose prediction are not affected by the attack
     """
     affected_imgs, total_images = 0, 0
-    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                     std=[0.229, 0.224, 0.225])
+    imagenet_mean = torch.Tensor([0.485, 0.456, 0.406]).view((3, 1, 1))
+    imagenet_std = torch.Tensor([0.229, 0.224, 0.225]).view((3, 1, 1))
+    
     for images, labels in data_loader:
-        prep_images = normalize(images[0])[None]
+        prep_images = (images - imagenet_mean) / imagenet_std
         image, label = images[0].numpy(), labels[0].item()
         c, h, w = image.shape
         total_images += 1

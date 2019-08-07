@@ -5,7 +5,7 @@ import pickle
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string('name', None, 'metabatch name')
-flags.DEFINE_string('output_root', '/mnt/data/results/', 'directory for storing results')
+flags.DEFINE_string('output_root', '/mnt/data/results/advertorch_results', 'directory for storing results')
 
 def main(argv):
     METABATCH_PATH = os.path.join(FLAGS.output_root, FLAGS.name, FLAGS.name+'.mtb')

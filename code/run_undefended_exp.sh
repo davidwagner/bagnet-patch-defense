@@ -54,18 +54,24 @@
 #
 #python3 generate_generic_new_metabatch.py -model=bagnet9 -nb_iter=80 -stepsize=0.0625
 ###################################################################################
-#python3 generate_generic_new_metabatch.py -model=bagnet17 -nb_iter=80 -stepsize=0.0625
-#python3 generate_generic_new_metabatch.py -model=bagnet33 -nb_iter=80 -stepsize=0.0625
+python3 generate_generic_new_metabatch.py -model=bagnet9 -nb_iter=40 -stepsize=0.5
+python3 generate_generic_new_metabatch.py -model=bagnet17 -nb_iter=40 -stepsize=0.5
+python3 generate_generic_new_metabatch.py -model=bagnet33 -nb_iter=40 -stepsize=0.5
+python3 generate_generic_new_metabatch.py -model=bagnet9 -nb_iter=80 -stepsize=0.0625
+python3 generate_generic_new_metabatch.py -model=bagnet17 -nb_iter=80 -stepsize=0.0625
+python3 generate_generic_new_metabatch.py -model=bagnet33 -nb_iter=80 -stepsize=0.0625
 ###################################################################################
 
 #################################################################################
-# Step size testing 
+# Step size testing (Unfinished)
 #################################################################################
 #python3 generate_generic_new_metabatch.py -model=resnet50 -nb_iter=10 -stepsize=2.
 #python3 generate_generic_new_metabatch.py -model=resnet50 -nb_iter=20 -stepsize=1.
-python3 generate_generic_new_metabatch.py -model=bagnet9 -nb_iter=10 -stepsize=2.
-python3 generate_generic_new_metabatch.py -model=bagnet9 -nb_iter=20 -stepsize=1.
-python3 generate_generic_new_metabatch.py -model=bagnet17 -nb_iter=10 -stepsize=2.
-python3 generate_generic_new_metabatch.py -model=bagnet17 -nb_iter=20 -stepsize=1.
-python3 generate_generic_new_metabatch.py -model=bagnet33 -nb_iter=10 -stepsize=2.
-python3 generate_generic_new_metabatch.py -model=bagnet33 -nb_iter=20 -stepsize=1.
+#################################
+#python3 generate_generic_new_metabatch.py -model=bagnet9 -nb_iter=10 -stepsize=2.
+#python3 generate_generic_new_metabatch.py -model=bagnet9 -nb_iter=20 -stepsize=1.
+#python3 generate_generic_new_metabatch.py -model=bagnet17 -nb_iter=10 -stepsize=2.
+#python3 generate_generic_new_metabatch.py -model=bagnet17 -nb_iter=20 -stepsize=1.
+#python3 generate_generic_new_metabatch.py -model=bagnet33 -nb_iter=10 -stepsize=2.
+#python3 generate_generic_new_metabatch.py -model=bagnet33 -nb_iter=20 -stepsize=1.
+################################
