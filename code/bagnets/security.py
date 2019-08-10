@@ -7,6 +7,7 @@ import torch.nn as nn
 from bagnets.utils import *
 from bagnets.clipping import *
 import torchvision.transforms as transforms
+import foolbox_alpha
 import foolbox
 from foolbox.attacks import ProjectedGradientDescentAttack as PGD
 from foolbox.criteria import TopKMisclassification
@@ -206,7 +207,7 @@ def get_subimg(image, loc, size):
 
 def foolbox_upper_bound(model, wrapper, data_loader, attack_size, 
                         clip_fn, a=None, b=None, stride=1, k=5, 
-                        max_iter=40, eps=1, stepsize=0.5, return_early=True, random_start=True,
+                        attack_alg=PGD, max_iter=40, eps=1, stepsize=1/40, return_early=True, random_start=True,
                         mean=np.array([0.485, 0.456, 0.406]).reshape((3, 1, 1)), 
                         std=np.array([0.229, 0.224, 0.225]).reshape((3, 1, 1)), 
                         output_root = './foolbox_results'):
@@ -239,7 +240,7 @@ def foolbox_upper_bound(model, wrapper, data_loader, attack_size,
                 wrapped_model.eval()
                 print('image {}, current location: {}'.format(total_images, (x, y)))
                 fmodel = foolbox.models.PyTorchModel(wrapped_model, bounds=(0, 1), num_classes=1000, preprocessing=(mean, std))
-                attack = PGD(fmodel, criterion=TopKMisclassification(k), distance=foolbox.distances.Linfinity)
+                attack = attack_alg(fmodel, criterion=TopKMisclassification(k), distance=foolbox.distances.Linfinity)
                 subimg = get_subimg(image, (x, y), attack_size)
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore")

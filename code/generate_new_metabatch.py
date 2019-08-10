@@ -16,7 +16,7 @@ import json
 
 FLAGS = flags.FLAGS
 flags.DEFINE_integer('N', 50, 'number of images')
-flags.DEFINE_integer('seed', 42, 'random seed for sampling images from ImageNet')
+flags.DEFINE_integer('chunkid', 10, 'index of partition chunk')
 flags.DEFINE_multi_integer('attack_size', [20, 20], 'size of sticker')
 flags.DEFINE_integer('stride', 20, 'stride of sticker')
 flags.DEFINE_string('model', 'bagnet33', 'model being evaluated')
@@ -29,7 +29,7 @@ flags.DEFINE_float('stepsize', 0.5, 'stepsize of PGD')
 flags.DEFINE_boolean('rand_init', True, 'random initial point in attack')
 flags.DEFINE_integer('metabatch_size', 10, 'metabatch size')
 flags.DEFINE_string('data_path', '/mnt/data/imagenet', 'directory where data are stored')
-flags.DEFINE_string('output_root', '/mnt/data/results/', 'directory for storing results')
+flags.DEFINE_string('output_root', '/mnt/data/results/advertorch_results', 'directory for storing results')
 
 def main(argv):
     """
@@ -39,7 +39,7 @@ def main(argv):
             [NAME].log
             dataset/
     """
-    NAME = 'rand_init_{}-{}-{}-{}-{}x{}-{}-{}-{}-{}-{}-{}-{}'.format(FLAGS.rand_init, FLAGS.model, FLAGS.N, FLAGS.seed, FLAGS.attack_size[0], FLAGS.attack_size[1], FLAGS.stride, FLAGS.clip_fn, FLAGS.a, FLAGS.b, FLAGS.eps, FLAGS.nb_iter, FLAGS.stepsize)
+    NAME = 'rand_init_{}-{}-{}-{}-{}x{}-{}-{}-{}-{}-{}-{}-{}'.format(FLAGS.rand_init, FLAGS.model, FLAGS.N, FLAGS.chunkid, FLAGS.attack_size[0], FLAGS.attack_size[1], FLAGS.stride, FLAGS.clip_fn, FLAGS.a, FLAGS.b, FLAGS.eps, FLAGS.nb_iter, FLAGS.stepsize)
     OUTPUT_PATH = os.path.join(FLAGS.output_root, NAME)
 
     if not os.path.exists(OUTPUT_PATH):
@@ -52,7 +52,7 @@ def main(argv):
 
     logger = logging.basicConfig(filename=LOG_PATH, level=logging.INFO)
     logging.info(strftime("%Y-%m-%d %H:%M:%S", gmtime()))
-    logging.info("Setting:\n random initialization: {}, model: {}, N: {}, seed: {}, attack_size: {}x{}, stride: {}, clip_fn: {}, a: {}, b: {}, eps: {}, nb_iter: {}, stepsize: {}".format(FLAGS.rand_init, FLAGS.model, FLAGS.N, FLAGS.seed, FLAGS.attack_size[0], FLAGS.attack_size[1], FLAGS.stride, FLAGS.clip_fn, FLAGS.a, FLAGS.b, FLAGS.eps, FLAGS.nb_iter, FLAGS.stepsize))
+    logging.info("Setting:\n random initialization: {}, model: {}, N: {}, chunkid: {}, attack_size: {}x{}, stride: {}, clip_fn: {}, a: {}, b: {}, eps: {}, nb_iter: {}, stepsize: {}".format(FLAGS.rand_init, FLAGS.model, FLAGS.N, FLAGS.chunkid, FLAGS.attack_size[0], FLAGS.attack_size[1], FLAGS.stride, FLAGS.clip_fn, FLAGS.a, FLAGS.b, FLAGS.eps, FLAGS.nb_iter, FLAGS.stepsize))
     ###################################
     # Model and data preparation
     ###################################
@@ -77,12 +77,13 @@ def main(argv):
     imagenet_val = datasets.ImageNet(FLAGS.data_path, split='val', download=False, 
                                          transform=imagenet_transform)
 
-    np.random.seed(FLAGS.seed)
-    val_subset_indices = np.random.choice(np.arange(50000), size=FLAGS.N, replace=False)
-    val_subset_loader = torch.utils.data.DataLoader(imagenet_val, 
+    val_subset_indices = image_partition(42, FLAGS.N)[FLAGS.chunkid]
+    val_subset_loader = torch.utils.data.DataLoader(imagenet_val,
                                                     batch_size=1,
                                                     num_workers=4,
                                                     sampler=torch.utils.data.sampler.SubsetRandomSampler(val_subset_indices))
+
+
 
     # load pretrained model
     clip_fn_dic = {"tanh_linear":tanh_linear, 

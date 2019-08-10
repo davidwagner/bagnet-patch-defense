@@ -53,13 +53,13 @@
 #python3 generate_generic_new_metabatch.py -model=bagnet33 -nb_iter=40 -stepsize=0.125
 #
 #python3 generate_generic_new_metabatch.py -model=bagnet9 -nb_iter=80 -stepsize=0.0625
-###################################################################################
-python3 generate_generic_new_metabatch.py -model=bagnet9 -nb_iter=40 -stepsize=0.5
-python3 generate_generic_new_metabatch.py -model=bagnet17 -nb_iter=40 -stepsize=0.5
-python3 generate_generic_new_metabatch.py -model=bagnet33 -nb_iter=40 -stepsize=0.5
-python3 generate_generic_new_metabatch.py -model=bagnet9 -nb_iter=80 -stepsize=0.0625
-python3 generate_generic_new_metabatch.py -model=bagnet17 -nb_iter=80 -stepsize=0.0625
-python3 generate_generic_new_metabatch.py -model=bagnet33 -nb_iter=80 -stepsize=0.0625
+################################################################################### Checkpoint
+#python3 generate_generic_new_metabatch.py -model=bagnet9 -nb_iter=40 -stepsize=0.5
+#python3 generate_generic_new_metabatch.py -model=bagnet17 -nb_iter=40 -stepsize=0.5
+#python3 generate_generic_new_metabatch.py -model=bagnet33 -nb_iter=40 -stepsize=0.5
+#python3 generate_generic_new_metabatch.py -model=bagnet9 -nb_iter=80 -stepsize=0.0625
+#python3 generate_generic_new_metabatch.py -model=bagnet17 -nb_iter=80 -stepsize=0.0625
+#python3 generate_generic_new_metabatch.py -model=bagnet33 -nb_iter=80 -stepsize=0.0625
 ###################################################################################
 
 #################################################################################
@@ -67,11 +67,24 @@ python3 generate_generic_new_metabatch.py -model=bagnet33 -nb_iter=80 -stepsize=
 #################################################################################
 #python3 generate_generic_new_metabatch.py -model=resnet50 -nb_iter=10 -stepsize=2.
 #python3 generate_generic_new_metabatch.py -model=resnet50 -nb_iter=20 -stepsize=1.
-#################################
 #python3 generate_generic_new_metabatch.py -model=bagnet9 -nb_iter=10 -stepsize=2.
 #python3 generate_generic_new_metabatch.py -model=bagnet9 -nb_iter=20 -stepsize=1.
 #python3 generate_generic_new_metabatch.py -model=bagnet17 -nb_iter=10 -stepsize=2.
-#python3 generate_generic_new_metabatch.py -model=bagnet17 -nb_iter=20 -stepsize=1.
+#python3 generate_generic_new_metabatch.py -model=bagnet9 -nb_iter=80 -stepsize=0.25
+#python3 generate_generic_new_metabatch.py -model=bagnet17 -nb_iter=80 -stepsize=0.25
+
+# resnet50 ratio=20
+#python3 generate_generic_new_metabatch.py -model=resnet50 -nb_iter=40 -stepsize=0.5
+#python3 generate_generic_new_metabatch.py -model=resnet50 -nb_iter=80 -stepsize=0.25
+
+# vanilla bagnet33 ratio=20
 #python3 generate_generic_new_metabatch.py -model=bagnet33 -nb_iter=10 -stepsize=2.
-#python3 generate_generic_new_metabatch.py -model=bagnet33 -nb_iter=20 -stepsize=1.
-################################
+python3 generate_generic_new_metabatch.py -model=bagnet33 -nb_iter=20 -stepsize=1.
+python3 generate_generic_new_metabatch.py -model=bagnet33 -nb_iter=80 -stepsize=0.25
+# vanilla bagnet33 ratio=5
+python3 generate_generic_new_metabatch.py -model=bagnet33 -nb_iter=80 -stepsize=0.0625
+
+# vanilla bagnet17 ratio=20
+python3 generate_generic_new_metabatch.py -model=bagnet17 -nb_iter=20 -stepsize=1.
+# vanilla bagnet17 ratio=5
+python3 generate_generic_new_metabatch.py -model=bagnet17 -nb_iter=80 -stepsize=0.0625

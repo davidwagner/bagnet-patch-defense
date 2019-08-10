@@ -11,6 +11,8 @@ import time
 import os
 import pickle
 import logging
+from foolbox.attacks import ProjectedGradientDescentAttack as PGD
+from foolbox_alpha.attacks import AdamRandomPGD
 from absl import app, flags
 from time import gmtime, strftime
 import json
@@ -26,9 +28,10 @@ flags.DEFINE_string('model', 'bagnet33', 'model being evaluated')
 flags.DEFINE_string('clip_fn', 'tanh_linear', 'clipping function')
 flags.DEFINE_float('a', 0.05, 'clipping parameter A')
 flags.DEFINE_float('b', -1, 'clipping parameter B')
+flags.DEFINE_string('attack_alg', 'PGD', 'attack algorithm')
 flags.DEFINE_float('eps', 1., 'percentage of perturbation')
 flags.DEFINE_integer('nb_iter', 40, 'number of iterations for PGD')
-flags.DEFINE_float('stepsize', 0.5, 'stepsize of PGD')
+flags.DEFINE_float('stepsize', 1/40, 'stepsize of PGD')
 flags.DEFINE_string('data_path', '/mnt/data/imagenet', 'data directory')
 flags.DEFINE_string('output_root', '/mnt/data/results/foolbox_results', 'directory for storing results')
 
@@ -40,7 +43,7 @@ def main(argv):
             [NAME].log
             dataset/
     """
-    NAME = '{}-{}-{}x{}-{}-{}-{}-{}-{}-{}'.format(FLAGS.N, FLAGS.chunkid, FLAGS.attack_size[0], FLAGS.attack_size[1], FLAGS.stride, FLAGS.model, FLAGS.clip_fn, FLAGS.eps, FLAGS.nb_iter, FLAGS.stepsize)
+    NAME = '{}-{}-{}x{}-{}-{}-{}-{}-{}-{}-{}'.format(FLAGS.N, FLAGS.chunkid, FLAGS.attack_size[0], FLAGS.attack_size[1], FLAGS.stride, FLAGS.model, FLAGS.clip_fn, FLAGS.attack_alg, FLAGS.eps, FLAGS.nb_iter, FLAGS.stepsize)
     OUTPUT_PATH = os.path.join(FLAGS.output_root, NAME)
     print(OUTPUT_PATH)
 
@@ -52,7 +55,7 @@ def main(argv):
 
     logger = logging.basicConfig(filename=LOG_PATH, level=logging.INFO)
     logging.info(strftime("%Y-%m-%d %H:%M:%S", gmtime()))
-    logging.info("Setting:\n N: {}, chunk id: {}, attack_size: {}x{}, stride: {}, model: {}, clip_fn: {},  eps: {}, nb_iter: {}, stepsize: {}".format(FLAGS.N, FLAGS.chunkid, FLAGS.attack_size[0], FLAGS.attack_size[1], FLAGS.stride, FLAGS.model, FLAGS.clip_fn, FLAGS.eps, FLAGS.nb_iter, FLAGS.stepsize))
+    logging.info("Setting:\n N: {}, chunk id: {}, attack_size: {}x{}, stride: {}, model: {}, clip_fn: {}, attack_alg: {}, eps: {}, nb_iter: {}, stepsize: {}".format(FLAGS.N, FLAGS.chunkid, FLAGS.attack_size[0], FLAGS.attack_size[1], FLAGS.stride, FLAGS.model, FLAGS.clip_fn, FLAGS.attack_alg, FLAGS.eps, FLAGS.nb_iter, FLAGS.stepsize))
     ###################################
     # Model and data preparation
     ###################################
@@ -101,6 +104,10 @@ def main(argv):
                 "inception":models.inception_v3(pretrained=True)}
     model = model_dic[FLAGS.model]
 
+    attack_alg_dic = {"PGD": PGD,
+            "AdamRandomPGD": AdamRandomPGD}
+    attack_alg = attack_alg_dic[FLAGS.attack_alg]
+
     if clip_fn is None:
         wrapper = PatchAttackWrapper
         if FLAGS.model in ["bagnet9", "bagnet17", "bagnet33"]:
@@ -138,7 +145,7 @@ def main(argv):
     tic = time.time()
     succ_prob = foolbox_upper_bound(model, wrapper, val_subset_loader, FLAGS.attack_size, 
                                     clip_fn=clip_fn, a=FLAGS.a, b=FLAGS.b, stride=FLAGS.stride, 
-                                    max_iter=FLAGS.nb_iter, eps=FLAGS.eps, stepsize=FLAGS.stepsize,
+                                    max_iter=FLAGS.nb_iter, attack_alg=attack_alg, eps=FLAGS.eps, stepsize=FLAGS.stepsize,
                                     return_early=FLAGS.return_early, output_root=OUTPUT_PATH)
     tac = time.time()
     print("Success probability: {}, Time: {:.3f}s or {:.3f}hr(s)".format(succ_prob, tac - tic, (tac-tic)/3600))
