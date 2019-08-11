@@ -22,4 +22,7 @@
 #################################################################
 #sudo python3 foolbox_attack.py -N=500 -model=bagnet9 -clip_fn=None -attack_alg=AdamRandomPGD -nb_iter=40 -stepsize=0.025
 #sudo python3 foolbox_attack.py -N=500 -model=bagnet9 -clip_fn=None -attack_alg=AdamRandomPGD -nb_iter=40 -stepsize=0.1
-sudo python3 foolbox_attack.py -N=500 -model=bagnet9 -clip_fn=None -attack_alg=PGD -nb_iter=40 -stepsize=0.1 -data_path=/home/zhanyuan/data/imagenet -output_root=/home/zhanyuan/data/results/foolbox_results
+#sudo python3 foolbox_attack.py -N=500 -model=bagnet9 -clip_fn=None -attack_alg=PGD -nb_iter=40 -stepsize=0.1 -data_path=/home/zhanyuan/data/imagenet -output_root=/home/zhanyuan/data/results/foolbox_results
+#sudo python3 foolbox_attack.py -N=500 -model=resnet50 -clip_fn=None -attack_alg=AdamRandomPGD -nb_iter=40 -stepsize=0.1 -data_path=/home/zhanyuan/data/imagenet -output_root=/home/zhanyuan/data/results/foolbox_results
+#sudo python3 foolbox_attack.py -N=500 -model=densenet -clip_fn=None -attack_alg=AdamRandomPGD -nb_iter=40 -stepsize=0.1 -data_path=/home/zhanyuan/data/imagenet -output_root=/home/zhanyuan/data/results/foolbox_results
+sudo python3 foolbox_attack.py -N=500 -model=bagnet33 -clip_fn=tanh_linear -attack_alg=AdamRandomPGD -nb_iter=40 -stepsize=0.1 -data_path=/home/zhanyuan/data/imagenet -output_root=/home/zhanyuan/data/results/foolbox_results
