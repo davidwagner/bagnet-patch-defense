@@ -18,7 +18,7 @@
 #sudo python3 foolbox_attack.py -N=500 -model=bagnet33 -nb_iter=40 -stepsize=0.025
 
 #################################################################
-# 2019-8-9~ AdamRandomPGD v.s. Vanilla PGD
+# 2019-8-9~8-12 AdamRandomPGD v.s. Vanilla PGD
 #################################################################
 #sudo python3 foolbox_attack.py -N=500 -model=bagnet9 -clip_fn=None -attack_alg=AdamRandomPGD -nb_iter=40 -stepsize=0.025
 
@@ -32,4 +32,4 @@
 
 #sudo python3 foolbox_attack.py -N=500 -model=bagnet33 -clip_fn=tanh_linear -attack_alg=AdamRandomPGD -nb_iter=40 -stepsize=0.1 
 
-sudo python3 foolbox_attack.py -N=500 -model=resnet101 -clip_fn=None -attack_alg=AdamRandomPGD -nb_iter=40 -stepsize=0.1 -data_path=/home/zhanyuan/data/imagenet -output_root=/home/zhanyuan/data/results/foolbox_results
+#sudo python3 foolbox_attack.py -N=500 -model=resnet101 -clip_fn=None -attack_alg=AdamRandomPGD -nb_iter=40 -stepsize=0.1 -data_path=/home/zhanyuan/data/imagenet -output_root=/home/zhanyuan/data/results/foolbox_results
