@@ -29,6 +29,7 @@ flags.DEFINE_string('clip_fn', 'tanh_linear', 'clipping function')
 flags.DEFINE_float('a', 0.05, 'clipping parameter A')
 flags.DEFINE_float('b', -1, 'clipping parameter B')
 flags.DEFINE_string('attack_alg', 'PGD', 'attack algorithm')
+flags.DEFINE_boolean('targeted', False, 'whether run a targeted attack')
 flags.DEFINE_float('eps', 1., 'percentage of perturbation')
 flags.DEFINE_integer('nb_iter', 40, 'number of iterations for PGD')
 flags.DEFINE_float('stepsize', 1/40, 'stepsize of PGD')
@@ -43,7 +44,7 @@ def main(argv):
             [NAME].log
             dataset/
     """
-    NAME = '{}-{}-{}x{}-{}-{}-{}-{}-{}-{}-{}'.format(FLAGS.N, FLAGS.chunkid, FLAGS.attack_size[0], FLAGS.attack_size[1], FLAGS.stride, FLAGS.model, FLAGS.clip_fn, FLAGS.attack_alg, FLAGS.eps, FLAGS.nb_iter, FLAGS.stepsize)
+    NAME = '{}-{}-{}x{}-{}-{}-{}-{}-{}-{}-{}-{}'.format(FLAGS.N, FLAGS.chunkid, FLAGS.attack_size[0], FLAGS.attack_size[1], FLAGS.stride, FLAGS.model, FLAGS.clip_fn, FLAGS.attack_alg, FLAGS.targeted, FLAGS.eps, FLAGS.nb_iter, FLAGS.stepsize)
     OUTPUT_PATH = os.path.join(FLAGS.output_root, NAME)
     print(OUTPUT_PATH)
 
@@ -55,7 +56,8 @@ def main(argv):
 
     logger = logging.basicConfig(filename=LOG_PATH, level=logging.INFO)
     logging.info(strftime("%Y-%m-%d %H:%M:%S", gmtime()))
-    logging.info("Setting:\n N: {}, chunk id: {}, attack_size: {}x{}, stride: {}, model: {}, clip_fn: {}, attack_alg: {}, eps: {}, nb_iter: {}, stepsize: {}".format(FLAGS.N, FLAGS.chunkid, FLAGS.attack_size[0], FLAGS.attack_size[1], FLAGS.stride, FLAGS.model, FLAGS.clip_fn, FLAGS.attack_alg, FLAGS.eps, FLAGS.nb_iter, FLAGS.stepsize))
+    setting_info = "Setting:\n N: {}, chunk id: {}, attack_size: {}x{}, stride: {}, model: {}, clip_fn: {}, attack_alg: {}, targeted: {}, eps: {}, nb_iter: {}, stepsize: {}".format(FLAGS.N, FLAGS.chunkid, FLAGS.attack_size[0], FLAGS.attack_size[1], FLAGS.stride, FLAGS.model, FLAGS.clip_fn, FLAGS.attack_alg, FLAGS.targeted, FLAGS.eps, FLAGS.nb_iter, FLAGS.stepsize)
+    logging.info(setting_info)
     ###################################
     # Model and data preparation
     ###################################
@@ -144,10 +146,11 @@ def main(argv):
 
     tic = time.time()
     succ_prob = foolbox_upper_bound(model, wrapper, val_subset_loader, FLAGS.attack_size, 
-                                    clip_fn=clip_fn, a=FLAGS.a, b=FLAGS.b, stride=FLAGS.stride, 
+                                    clip_fn=clip_fn, a=FLAGS.a, b=FLAGS.b, stride=FLAGS.stride, targeted=FLAGS.targeted,
                                     max_iter=FLAGS.nb_iter, attack_alg=attack_alg, eps=FLAGS.eps, stepsize=FLAGS.stepsize,
                                     return_early=FLAGS.return_early, output_root=OUTPUT_PATH)
     tac = time.time()
+    print(setting_info)
     print("Success probability: {}, Time: {:.3f}s or {:.3f}hr(s)".format(succ_prob, tac - tic, (tac-tic)/3600))
     logging.info("Success probability: {}, Time: {:.3f}s or {:.3f}hr(s)".format(succ_prob, tac - tic, (tac-tic)/3600))
 

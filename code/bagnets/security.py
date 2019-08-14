@@ -241,7 +241,7 @@ def foolbox_upper_bound(model, wrapper, data_loader, attack_size,
     imagenet_std = torch.Tensor([0.229, 0.224, 0.225]).view((3, 1, 1))
     for images, labels in data_loader:
         prep_images = (images - imagenet_mean) / imagenet_std
-        _images = prep_images.to(device)
+        _images = prep_images.cuda()
         if targeted: # if targeted, calculate logits for sampling targeted class
             with torch.no_grad():
                 if clip_fn is None:
