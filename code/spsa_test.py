@@ -50,6 +50,18 @@ spsa_params = {'eps': 2.5,
              'nb_iter': 40,
              'y': None}
 
+correct = 0
+count = 0
+for xs, ys in val_subset_loader:
+    count += 1
+    ys = ys.numpy().astype(np.int32)
+    # Create an SPSA attack
+    spsa_params['y'] = ys
+    adv_x = spsa_op.generate_np(xs, **spsa_params)
+    break
+
+# tf computational graph
+count = 0
 for xs, ys in val_subset_loader:
     count += 1
     print(count)
