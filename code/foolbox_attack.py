@@ -45,8 +45,10 @@ def main(argv):
             dataset/
     """
     NAME = '{}-{}-{}x{}-{}-{}-{}-{}-{}-{}-{}-{}'.format(FLAGS.N, FLAGS.chunkid, FLAGS.attack_size[0], FLAGS.attack_size[1], FLAGS.stride, FLAGS.model, FLAGS.clip_fn, FLAGS.attack_alg, FLAGS.targeted, FLAGS.eps, FLAGS.nb_iter, FLAGS.stepsize)
-    OUTPUT_PATH = os.path.join(FLAGS.output_root, NAME)
-    print(OUTPUT_PATH)
+    if FLAGS.targeted:
+        OUTPUT_PATH = os.path.join(FLAGS.output_root,'targeted', NAME)
+    else:
+        OUTPUT_PATH = os.path.join(FLAGS.output_root,'untargeted', NAME)
 
     if not os.path.exists(OUTPUT_PATH):
                 os.mkdir(OUTPUT_PATH)
@@ -136,7 +138,10 @@ def main(argv):
             if FLAGS.model in ["bagnet9", "bagnet17", "bagnet33"] and model.avg_pool == False: # if apply clipping function
                 logit = clip_fn(logit, FLAGS.a, FLAGS.b)
                 logit = torch.mean(logit, dim=(1, 2))
-            _, topk = torch.topk(logit, k=5, dim=1)
+            if not FLAGS.targeted:
+                _, topk = torch.topk(logit, k=5, dim=1)
+            else: # targeted attack in top-1 setting
+                _, topk = torch.topk(logit, k=1, dim=1)
             topk, label = topk.cpu().numpy()[0], label.numpy()[0]
             if label in topk:
                 count += 1

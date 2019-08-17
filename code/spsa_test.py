@@ -1,4 +1,6 @@
+from bagnets.utils import *
 import tensorflow as tf
+import torch
 from torch import optim
 from torch.autograd import Variable
 import torchvision.models as models
@@ -26,7 +28,7 @@ imagenet_transform = transforms.Compose([transforms.Resize(256),
                                          transforms.CenterCrop(224),
                                          transforms.ToTensor(), 
                                          normalize])
-imagenet_val = datasets.ImageNet("./", split='val', download=False,
+imagenet_val = datasets.ImageNet("/mnt/data/imagenet", split='val', download=False,
                                      transform=imagenet_transform)
 
 val_subset_indices = image_partition(42, 100)[0]
