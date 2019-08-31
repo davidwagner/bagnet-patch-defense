@@ -68,7 +68,7 @@
 ###############################################################
 # 2019-8-29 Clipped BagNet-17 (Planed)
 ###############################################################
-#sudo python3 foolbox_attack.py -N=500 -model=bagnet17 -clip_fn=tanh_linear -attack_alg=AdamRandomPGD -nb_iter=40 -stepsize=0.1 
+sudo python3 foolbox_attack.py -N=500 -stride=40 -model=bagnet17 -clip_fn=tanh_linear -attack_alg=AdamRandomPGD -nb_iter=40 -stepsize=0.1 -data_path=/home/zhanyuan/data/imagenet -output_root=/home/zhanyuan/data/results/foolbox_results
 
 ################################################################
 # 2019-8-29 critical region sticker attack
