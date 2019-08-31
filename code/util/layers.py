@@ -1,3 +1,6 @@
+from keras.layers import Layer
+from keras import backend as K
+import tensorflow as tf
 from util.tensor import*
 
 DEBUG = False

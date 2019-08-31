@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from skimage import feature, transform
 from bagnets.pytorch import Bottleneck
+from keras.preprocessing import image as KImage
 import time
 import torch
 import torch.nn as nn
@@ -716,3 +717,39 @@ def undo_imagenet_preprocess(image):
     undo_image = image * std
     undo_image += mean
     return undo_image
+#####################################################
+
+######################################################
+# Helper functions for CleverHans SPSA sticker attack
+######################################################
+class CleverhansDataLoader:
+    def __init__(self, images, labels):
+        """ An iterator yielding one image and its label at a time from a batch of images
+        Input:
+        - images (numpy array): shape (batch_size, 3, 224, 224)
+        - labels (numpy array): shape (batch_size, )
+        """
+        self.images = images
+        self.labels = labels
+        self.length = images.shape[0]
+        self.count = -1
+    
+    def __iter__(self):
+        return self
+    
+    def __next__(self):
+        self.count += 1
+        if self.count < self.length:
+            return (self.images[self.count][None].copy(), np.array(self.labels[self.count]))
+        else:
+            raise StopIteration
+        
+    def __len__(self):
+        return self.images.shape[0]
+
+def load_image(img_path, mean=np.array([0.485, 0.456, 0.406]).reshape((3, 1, 1)), std=np.array([0.229, 0.224, 0.225]).reshape((3, 1, 1))):
+    img = KImage.load_img(img_path, target_size=(224, 224))
+    img = KImage.img_to_array(img).transpose([2, 0, 1])
+    img /= 255
+    img = (img - mean)/std
+    return img
