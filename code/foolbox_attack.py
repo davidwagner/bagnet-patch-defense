@@ -2,6 +2,7 @@ from advertorch.attacks import LinfPGDAttack
 import bagnets
 from bagnets.clipping import*
 from bagnets.security import*
+from get_robust_images import*
 import torch
 import torchvision.models as models
 import torchvision.transforms as transforms
@@ -35,6 +36,7 @@ flags.DEFINE_integer('nb_iter', 40, 'number of iterations for PGD')
 flags.DEFINE_float('stepsize', 1/40, 'stepsize of PGD')
 flags.DEFINE_string('data_path', '/mnt/data/imagenet', 'data directory')
 flags.DEFINE_string('output_root', '/mnt/data/results/foolbox_results', 'directory for storing results')
+flags.DEFINE_boolean('get_robust', False, 'whether save robust images')
 
 def main(argv):
     """
@@ -49,6 +51,9 @@ def main(argv):
         OUTPUT_PATH = os.path.join(FLAGS.output_root,'targeted', NAME)
     else:
         OUTPUT_PATH = os.path.join(FLAGS.output_root,'untargeted', NAME)
+    if FLAGS.get_robust:
+        print("save robust images")
+        OUTPUT_PATH = os.path.join(FLAGS.output_root, 'robust', NAME)
 
     if not os.path.exists(OUTPUT_PATH):
                 os.mkdir(OUTPUT_PATH)
@@ -150,7 +155,13 @@ def main(argv):
         logging.info("Accuracy before attack: {}".format(clean_acc))
 
     tic = time.time()
-    succ_prob = foolbox_upper_bound(model, wrapper, val_subset_loader, FLAGS.attack_size, 
+    if FLAGS.get_robust:
+        succ_prob = foolbox_get_robust(model, wrapper, val_subset_loader, FLAGS.attack_size, 
+                                    clip_fn=clip_fn, a=FLAGS.a, b=FLAGS.b, stride=FLAGS.stride, targeted=FLAGS.targeted,
+                                    max_iter=FLAGS.nb_iter, attack_alg=attack_alg, eps=FLAGS.eps, stepsize=FLAGS.stepsize,
+                                    return_early=FLAGS.return_early, output_root=OUTPUT_PATH)
+    else:
+        succ_prob = foolbox_upper_bound(model, wrapper, val_subset_loader, FLAGS.attack_size, 
                                     clip_fn=clip_fn, a=FLAGS.a, b=FLAGS.b, stride=FLAGS.stride, targeted=FLAGS.targeted,
                                     max_iter=FLAGS.nb_iter, attack_alg=attack_alg, eps=FLAGS.eps, stepsize=FLAGS.stepsize,
                                     return_early=FLAGS.return_early, output_root=OUTPUT_PATH)

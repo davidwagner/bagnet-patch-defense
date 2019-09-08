@@ -1,3 +1,4 @@
+import numpy as np
 from keras import backend as K
 from keras.layers import Layer, Input
 from keras.models import Model
@@ -92,39 +93,40 @@ def load_image(img_path, mean=np.array([0.485, 0.456, 0.406]).reshape((3, 1, 1))
 # CleverHans SPSA Sticker attack
 #####################################################################
 def cleverhans_spsa(model, data_iter, attack_size):
-    count = 0
-    try: 
-        image, label = next(data_iter)
-        label = np.array([label])
-    except:
-        break
-    print('Start attacking image {}'.format(count))
-    for x in range():
-        for y in range():
-            print("location {}".format((x, y)))
-            subimg = get_subimgs(image, (x, y), attack_size)
-            #Build model
-            tic = time.time()
-            subimg_op = Input(shape=(3, attack_size[0], attack_size[1]))
-            adv_img_op = ApplyStickerLayer(image, attack_size, (x, y))(subimg_op)
-            wrapped_logits_op = model(adv_img_op)
-            wrapped_model = Model(inputs=subimg_op, outputs=wrapped_logits_op)
-            tac = time.time()
-            print('{}s to build graph for attack'.format(tac - tic))
-            wrapper = CallableModelWrapper(wrapped_model, "logits")
-            wrapper.nb_classes = 1000
-            attack = SPSA(wrapper, sess=keras.backend.get_session())
-            spsa_params = {'eps': 2.5,
-               'clip_min': -2.3,
-               'clip_max': 2.7,
-               'nb_iter': 40,
-               'y': label.astype(np.int32)}
-            print('Start attacking...')
-            tic = time.time()
-            adv = attack.generate_np(subimg, **spsa_params)
-            tac = time.time()
-            print("Attack Time: {}s".format(tac - tic))
+    while True:
+        count = 0
+        try: 
+            image, label = next(data_iter)
+            label = np.array([label])
+        except StopIteration:
+            break
+        print('Start attacking image {}'.format(count))
+        for x in range():
+            for y in range():
+                print("location {}".format((x, y)))
+                subimg = get_subimgs(image, (x, y), attack_size)
+                #Build model
+                tic = time.time()
+                subimg_op = Input(shape=(3, attack_size[0], attack_size[1]))
+                adv_img_op = ApplyStickerLayer(image, attack_size, (x, y))(subimg_op)
+                wrapped_logits_op = model(adv_img_op)
+                wrapped_model = Model(inputs=subimg_op, outputs=wrapped_logits_op)
+                tac = time.time()
+                print('{}s to build graph for attack'.format(tac - tic))
+                wrapper = CallableModelWrapper(wrapped_model, "logits")
+                wrapper.nb_classes = 1000
+                attack = SPSA(wrapper, sess=keras.backend.get_session())
+                spsa_params = {'eps': 2.5,
+                   'clip_min': -2.3,
+                   'clip_max': 2.7,
+                   'nb_iter': 40,
+                   'y': label.astype(np.int32)}
+                print('Start attacking...')
+                tic = time.time()
+                adv = attack.generate_np(subimg, **spsa_params)
+                tac = time.time()
+                print("Attack Time: {}s".format(tac - tic))
 
-            # Evaluate adversarial sticker
-            adv_logits = wrapped_model.predict(adv)
-            print("Adversarial image: top-5 prediction: {}, label: {}".format(np.argsort(adv_logits, axis=1)[:, -5:], label))
+                # Evaluate adversarial sticker
+                adv_logits = wrapped_model.predict(adv)
+                print("Adversarial image: top-5 prediction: {}, label: {}".format(np.argsort(adv_logits, axis=1)[:, -5:], label))
