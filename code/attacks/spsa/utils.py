@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 import time
-from ..bagnets.clipping import *
+from clipping import *
 
 class AdamOptimizer:
     """Basic Adam optimizer implementation that can minimize w.r.t.
@@ -212,3 +212,5 @@ def run_sticker_spsa(data_loader, model, num_iter,
                 print(f'adversarial topk {topk}')
         tac = time.time()
         print(f'Time duration for one position: {(tac - tic)/60} min.')
+
+

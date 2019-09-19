@@ -50,7 +50,12 @@ def main(argv):
 
     # load pretrained model
     bagnet33_keras = bagnets.keras.bagnet33()
+    #bagnet17_keras = bagnets.keras.bagnet17()
+    #bagnet9_keras = bagnets.keras.bagnet9()
     model = bagnet33_keras
+
+    for layer in model.layers:
+        layer.trainable = False
 
     #####################################
     # Start attacking
