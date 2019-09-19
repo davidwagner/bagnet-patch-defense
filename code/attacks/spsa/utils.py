@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 import time
+from ..bagnets.clipping import *
 
 class AdamOptimizer:
     """Basic Adam optimizer implementation that can minimize w.r.t.
