@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import numpy as np
+import time
 
 class AdamOptimizer:
     """Basic Adam optimizer implementation that can minimize w.r.t.
@@ -191,15 +192,15 @@ def run_sticker_spsa(data_loader, model, num_iter,
         logits = torch.mean(logits, dim=(1, 2))
         values, topk = torch.topk(logits, 5, dim=1)
         print(f'clean topk {(label.item(), topk)}')
-        mean = np.array([0.485, 0.456, 0.406])
-        std = np.array([0.229, 0.224, 0.225])
+        mean = np.array([0.485, 0.456, 0.406]).reshape((3, 1, 1))
+        std = np.array([[0.229, 0.224, 0.225]]).reshape((3, 1, 1))
         tic = time.time()
         for x in [100]: #range(0, h - attack_size[0] + 1, stride):
             for y in [100]: #range(0, w - attack_size[1] + 1, stride):
                 wrapped_model = wrapper(model, image.clone(), sticker_size, (x, y), clip_fn, a, b)
                 subimg = get_subimgs(image, (x, y), sticker_size)
                 
-                spsa_attack = StickerSPSA(wrapped_model, subimg, label)
+                spsa_attack = StickerSPSA(wrapped_model, subimg, label, step_size=1) # TODO: adjust step size
                 for i in range(num_iter):
                     spsa_attack.run()
 
@@ -208,13 +209,5 @@ def run_sticker_spsa(data_loader, model, num_iter,
                 values, topk = torch.topk(logits, 5, dim=1)
                 topk = topk.cpu().numpy()
                 print(f'adversarial topk {topk}')
-                image = image[0].cpu().numpy()
-                adv_subimg = spsa_attack.adv_subimg[0].cpu().numpy()
-                adv_img = apply_sticker(adv_subimg, image, (x, y), sticker_size)
-                adv_img = (adv_img*std) + mean
-                
-                plt.imshow(adv_img.transpose([1, 2, 0]))
-                plt.title(f"adv subimage after {num_iter} iterations")
-                plt.show()
         tac = time.time()
         print(f'Time duration for one position: {(tac - tic)/60} min.')
