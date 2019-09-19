@@ -3,6 +3,8 @@ import torch.nn as nn
 import numpy as np
 import time
 from clipping import *
+use_cuda = torch.cuda.is_available()
+device = torch.device("cuda:0" if use_cuda else "cpu")
 
 class AdamOptimizer:
     """Basic Adam optimizer implementation that can minimize w.r.t.

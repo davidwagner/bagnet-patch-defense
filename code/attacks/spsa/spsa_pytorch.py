@@ -35,4 +35,4 @@ bagnet33 = pytorchnet.bagnet33(pretrained=True, avg_pool=False).to(device)
 bagnet33.eval()
 print()
 
-run_sticker_spsa(val_subset_loader, bagnet33, 10)
+run_sticker_spsa(val_subset_loader, bagnet33, 1000)
