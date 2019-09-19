@@ -213,4 +213,10 @@ def run_sticker_spsa(data_loader, model, num_iter,
         tac = time.time()
         print(f'Time duration for one position: {(tac - tic)/60} min.')
 
-
+def image_partition(seed, partition_size):
+    idx_lst = np.arange(50000)
+    np.random.seed(seed)
+    np.random.shuffle(idx_lst)
+    num_per_partition = int(50000/partition_size)
+    idx_lst = np.split(idx_lst, num_per_partition)
+    return idx_lst
