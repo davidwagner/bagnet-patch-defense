@@ -1,6 +1,6 @@
 from utils import *
-from ..bagnets.clipping import *
-import ..bagnets
+from clipping import *
+import pytorchnet
 import torch
 import numpy as np
 import time
@@ -31,7 +31,7 @@ val_subset_loader = torch.utils.data.DataLoader(imagenet_val,
                                                 sampler=torch.utils.data.sampler.SubsetRandomSampler(val_subset_indices))
 
 # load pretrained model
-bagnet33 = bagnets.pytorch.bagnet33(pretrained=True, avg_pool=False).to(device)
+bagnet33 = pytorchnet.bagnet33(pretrained=True, avg_pool=False).to(device)
 bagnet33.eval()
 print()
 
