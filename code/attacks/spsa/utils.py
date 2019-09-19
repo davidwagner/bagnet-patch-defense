@@ -3,9 +3,11 @@ import torch.nn as nn
 import numpy as np
 import time
 from clipping import *
+import matplotlib.pyplot as plt
 use_cuda = torch.cuda.is_available()
 device = torch.device("cuda:0" if use_cuda else "cpu")
 
+# Reference: https://github.com/FlashTek/foolbox/blob/adam-pgd/foolbox/optimizers.py#L31
 class AdamOptimizer:
     """Basic Adam optimizer implementation that can minimize w.r.t.
     a single variable.
@@ -113,6 +115,14 @@ class DynamicClippedPatchAttackWrapper(ClippedPatchAttackWrapper):
         sticker[:, :, self.x1:self.x2, self.y1:self.y2] = subimg
         return sticker
 
+def image_partition(seed, total_num, partition_size):
+    idx_lst = np.arange(total_num)
+    np.random.seed(seed)
+    np.random.shuffle(idx_lst)
+    num_per_partition = int(total_num/partition_size)
+    idx_lst = np.split(idx_lst, num_per_partition)
+    return idx_lst
+
 def get_subimgs(images, loc, size):
     """Take an of IMAGES, location LOC and SIZE of stickers, 
         return the sub-image that are for adversarial stickers
@@ -187,38 +197,52 @@ def apply_sticker(adv, img, loc, size):
     img = img * mask
     return img + sticker
 
-def run_sticker_spsa(data_loader, model, num_iter,
-                     wrapper=DynamicClippedPatchAttackWrapper, sticker_size=(20, 20), clip_fn=tanh_linear, a=0.05, b=-1):
-    for image, label in (data_loader):
+def run_sticker_spsa(data_loader, model, num_iter, id2id,
+                     wrapper=DynamicClippedPatchAttackWrapper, sticker_size=(20, 20), stride=20, clip_fn=tanh_linear, a=0.05, b=-1):
+    for n, (image, label) in enumerate(data_loader):
+
+        # Move the image to GPU and obtain the top-5 prediction on the clean image.
         image = image.to(device)
+        true_label = id2id[label.item()]
         logits = model(image)
         logits = torch.mean(logits, dim=(1, 2))
-        values, topk = torch.topk(logits, 5, dim=1)
+        _, topk = torch.topk(logits, 5, dim=1)
+        topk = topk[0].cpu().numpy()
         print(f'clean topk {(label.item(), topk)}')
         mean = np.array([0.485, 0.456, 0.406]).reshape((3, 1, 1))
         std = np.array([[0.229, 0.224, 0.225]]).reshape((3, 1, 1))
+        earlyreturn = False
         tic = time.time()
-        for x in [100]: #range(0, h - attack_size[0] + 1, stride):
-            for y in [100]: #range(0, w - attack_size[1] + 1, stride):
+        for x in range(0, 224 - sticker_size[0] + 1, stride):
+            if earlyreturn: break
+            for y in range(0, 224 - sticker_size[1] + 1, stride):
+                if earlyreturn: break
+                print(f'Image {n}, current position: {(x, y)}')
                 wrapped_model = wrapper(model, image.clone(), sticker_size, (x, y), clip_fn, a, b)
                 subimg = get_subimgs(image, (x, y), sticker_size)
                 
-                spsa_attack = StickerSPSA(wrapped_model, subimg, label, step_size=1) # TODO: adjust step size
+                spsa_attack = StickerSPSA(wrapped_model, subimg, label, step_size=0.01) # TODO: adjust step size
                 for i in range(num_iter):
                     spsa_attack.run()
 
-                # apply sticker
+                # evaluate the sticker
                 logits = wrapped_model(spsa_attack.adv_subimg)
                 values, topk = torch.topk(logits, 5, dim=1)
-                topk = topk.cpu().numpy()
-                print(f'adversarial topk {topk}')
+                topk = topk[0].cpu().numpy()
+                if true_label+100 not in topk: #TODO: remove 100
+                    earlyreturn = True
+                    print(f"Successfully attack at {(x, y)}")
+                    adv_img = image[0].cpu().numpy()
+                    adv_subimg = spsa_attack.adv_subimg[0].cpu().numpy()
+                    adv_img = apply_sticker(adv_subimg, adv_img, (x, y), sticker_size)
+                    adv_img = (adv_img*std) + mean
+                    adv_img = adv_img.transpose([1, 2, 0])
+                    print(adv_img.shape)
+                    plt.imsave(adv_img, f'./{n}.png')
+                else:
+                    print(f"Fail to attack at {(x, y)}")
+                print(f"label: {true_label}, topk: {topk}")
         tac = time.time()
-        print(f'Time duration for one position: {(tac - tic)/60} min.')
+        print('Time duration for one position: {:.2f} min.'.format((tac - tic)/60))
 
-def image_partition(seed, partition_size):
-    idx_lst = np.arange(50000)
-    np.random.seed(seed)
-    np.random.shuffle(idx_lst)
-    num_per_partition = int(50000/partition_size)
-    idx_lst = np.split(idx_lst, num_per_partition)
-    return idx_lst
+
