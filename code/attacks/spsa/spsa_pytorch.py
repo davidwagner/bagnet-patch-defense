@@ -21,9 +21,9 @@ imagenet_transform = transforms.Compose([transforms.ToTensor(),
                                          normalize])
 folder = datasets.ImageFolder("/mnt/data/results/foolbox_results/robust/500-10-20x20-20-bagnet33-tanh_linear-AdamRandomPGD-False-1.0-40-0.1", transform=imagenet_transform)
 id2id = {value:int(key) for key, value in folder.class_to_idx.items()}
-N = 331
+N = 10
 # There are 331 images in the robust dataset
-val_subset_indices = image_partition(42, 331, N)[0]
+val_subset_indices = image_partition(42, 330, N)[0]
 val_subset_loader = torch.utils.data.DataLoader(folder,
                                                 batch_size=1,
                                                 num_workers=4,

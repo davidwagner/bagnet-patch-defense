@@ -237,8 +237,8 @@ def run_sticker_spsa(data_loader, model, num_iter, id2id,
                     adv_img = apply_sticker(adv_subimg, adv_img, (x, y), sticker_size)
                     adv_img = (adv_img*std) + mean
                     adv_img = adv_img.transpose([1, 2, 0])
-                    print(adv_img.shape)
-                    plt.imsave(adv_img, f'./{n}.png')
+                    print(adv_img.min(), adv_img.max())
+                    plt.imsave(f'./{n}.png', adv_img)
                 else:
                     print(f"Fail to attack at {(x, y)}")
                 print(f"label: {true_label}, topk: {topk}")
