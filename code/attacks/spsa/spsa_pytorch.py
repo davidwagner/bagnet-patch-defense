@@ -51,4 +51,4 @@ with torch.no_grad():
     print("Accuracy before attack: {}".format(clean_acc))
 
 
-run_sticker_spsa(val_subset_loader, model, 10, id2id)
+run_sticker_spsa(val_subset_loader, model, 1000, id2id, output_root='/mnt/data/results/spsa_results/1000iter')

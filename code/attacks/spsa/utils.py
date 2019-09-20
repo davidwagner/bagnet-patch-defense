@@ -1,3 +1,4 @@
+import os
 import torch
 import torch.nn as nn
 import numpy as np
@@ -142,6 +143,10 @@ class StickerSPSA:
                  delta = 0.01, num_samples=128, step_size=0.01):
         self.model = model
         self.clean_subimg = subimg.clone()
+        self.clean_undo_subimg = undo_imagenet_preprocess_pytorch(subimg)
+        self.mean = torch.tensor([0.485, 0.456, 0.406]).reshape((1, 3, 1, 1)).cuda()
+        self.std = torch.tensor([[0.229, 0.224, 0.225]]).reshape((1, 3, 1, 1)).cuda()
+
         self.adv_subimg = subimg.clone()
         self.label = label
         self.sticker_size = sticker_size
@@ -175,10 +180,20 @@ class StickerSPSA:
         # update the sticker
         self.adv_subimg += self.adam_optimizer(est_grad[None])
 
-        # clip the perturbation so that it is in a valid range
-        adv_pertub = self.adv_subimg - self.clean_subimg 
-        self.adv_pertub = torch.clamp(adv_pertub, -1.8044, 2.2489)
-        self.adv_subimg = self.clean_subimg + self.adv_pertub
+        # Clip the perturbation so that it is in a valid range
+        # There several steps:
+
+        # Step 1: Make sure the pertubation by itself is valid.
+        adv_undo_subimg = undo_imagenet_preprocess_pytorch(self.adv_subimg)
+        adv_undo_pertub = adv_undo_subimg - self.clean_undo_subimg 
+        adv_undo_pertub = torch.clamp(adv_undo_pertub, 0, 1)
+
+        # Step 2: Make sure the image with sticker is valid.
+        adv_undo_subimg = adv_undo_pertub + self.clean_undo_subimg
+        adv_undo_subimg = torch.clamp(adv_undo_subimg, 0, 1)
+
+        # Step 3: Preprocess the adversarial subimage
+        self.adv_subimg = (adv_undo_subimg - self.mean) / self.std
 
 def apply_sticker(adv, img, loc, size):
     """
@@ -197,8 +212,13 @@ def apply_sticker(adv, img, loc, size):
     img = img * mask
     return img + sticker
 
+def undo_imagenet_preprocess_pytorch(image):
+    mean = torch.tensor([0.485, 0.456, 0.406]).view((1, 3, 1, 1)).cuda()
+    std = torch.tensor([0.229, 0.224, 0.225]).view((1, 3, 1, 1)).cuda()
+    return (image*std) + mean
+
 def run_sticker_spsa(data_loader, model, num_iter, id2id,
-                     wrapper=DynamicClippedPatchAttackWrapper, sticker_size=(20, 20), stride=20, clip_fn=tanh_linear, a=0.05, b=-1):
+                     wrapper=DynamicClippedPatchAttackWrapper, sticker_size=(20, 20), stride=20, clip_fn=tanh_linear, a=0.05, b=-1, output_root='./'):
     for n, (image, label) in enumerate(data_loader):
 
         # Move the image to GPU and obtain the top-5 prediction on the clean image.
@@ -208,14 +228,15 @@ def run_sticker_spsa(data_loader, model, num_iter, id2id,
         logits = torch.mean(logits, dim=(1, 2))
         _, topk = torch.topk(logits, 5, dim=1)
         topk = topk[0].cpu().numpy()
-        print(f'clean topk {(label.item(), topk)}')
+        print(f'clean topk {(true_label, topk)}')
         mean = np.array([0.485, 0.456, 0.406]).reshape((3, 1, 1))
         std = np.array([[0.229, 0.224, 0.225]]).reshape((3, 1, 1))
         earlyreturn = False
-        tic = time.time()
+        
         for x in range(0, 224 - sticker_size[0] + 1, stride):
             if earlyreturn: break
             for y in range(0, 224 - sticker_size[1] + 1, stride):
+                tic = time.time()
                 if earlyreturn: break
                 print(f'Image {n}, current position: {(x, y)}')
                 wrapped_model = wrapper(model, image.clone(), sticker_size, (x, y), clip_fn, a, b)
@@ -224,6 +245,8 @@ def run_sticker_spsa(data_loader, model, num_iter, id2id,
                 spsa_attack = StickerSPSA(wrapped_model, subimg, label, step_size=0.01) # TODO: adjust step size
                 for i in range(num_iter):
                     spsa_attack.run()
+                tac = time.time()
+                print('Time duration for one position: {:.2f} min.'.format((tac - tic)/60))
 
                 # evaluate the sticker
                 logits = wrapped_model(spsa_attack.adv_subimg)
@@ -237,12 +260,8 @@ def run_sticker_spsa(data_loader, model, num_iter, id2id,
                     adv_img = apply_sticker(adv_subimg, adv_img, (x, y), sticker_size)
                     adv_img = (adv_img*std) + mean
                     adv_img = adv_img.transpose([1, 2, 0])
-                    print(adv_img.min(), adv_img.max())
-                    plt.imsave(f'./{n}.png', adv_img)
+                    adv_img = np.clip(adv_img, 0, 1)
+                    plt.imsave(os.path.join(output_root, f"{n}.png"), adv_img)
                 else:
                     print(f"Fail to attack at {(x, y)}")
                 print(f"label: {true_label}, topk: {topk}")
-        tac = time.time()
-        print('Time duration for one position: {:.2f} min.'.format((tac - tic)/60))
-
-
