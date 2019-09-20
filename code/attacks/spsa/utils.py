@@ -179,6 +179,8 @@ class StickerSPSA:
 
         # update the sticker
         self.adv_subimg += self.adam_optimizer(est_grad[None])
+        #TODO: remove print
+        print(f'self.adv_subimg: {(torch.min(self.adv_subimg), torch.max(self.adv_subimg))}')
 
         # Clip the perturbation so that it is in a valid range
         # There several steps:
@@ -187,13 +189,16 @@ class StickerSPSA:
         adv_undo_subimg = undo_imagenet_preprocess_pytorch(self.adv_subimg)
         adv_undo_pertub = adv_undo_subimg - self.clean_undo_subimg 
         adv_undo_pertub = torch.clamp(adv_undo_pertub, 0, 1)
+        print(f'Step 1: adv_undo_pertub: {(torch.min(adv_undo_pertub), torch.max(adv_undo_pertub))}')
 
         # Step 2: Make sure the image with sticker is valid.
         adv_undo_subimg = adv_undo_pertub + self.clean_undo_subimg
         adv_undo_subimg = torch.clamp(adv_undo_subimg, 0, 1)
 
+        print(f'Step 2: adv_undo_pertub: {(torch.min(adv_undo_subimg), torch.max(adv_undo_subimg))}')
         # Step 3: Preprocess the adversarial subimage
         self.adv_subimg = (adv_undo_subimg - self.mean) / self.std
+        print(f'Step 3: self.adv_subimg: {(torch.min(self.adv_subimg), torch.max(self.adv_subimg))}')
 
 class StickerSPSAModel(nn.Module):
     def __init__(self, model, subimg, label, sticker_size=(20, 20), 
@@ -304,6 +309,8 @@ def run_sticker_spsa(data_loader, model, num_iter, id2id,
                 
                 spsa_attack = StickerSPSA(wrapped_model, subimg, label, step_size=0.01) # TODO: adjust step size
                 for i in range(num_iter):
+                    # TODO: remove print
+                    print(f'iteration {i}')
                     spsa_attack.run()
                 tac = time.time()
                 print('Time duration for one position: {:.2f} min.'.format((tac - tic)/60))
