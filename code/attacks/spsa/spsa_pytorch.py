@@ -13,7 +13,7 @@ device = torch.device("cuda:0" if use_cuda else "cpu")
 if use_cuda:
     print(torch.cuda.get_device_name(0))
 else:
-	print("using cpu")
+    print("using cpu")
 
 normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                   std=[0.229, 0.224, 0.225])
@@ -51,4 +51,4 @@ with torch.no_grad():
     print("Accuracy before attack: {}".format(clean_acc))
 
 
-run_sticker_spsa(val_subset_loader, model, 500, id2id, output_root='/mnt/data/results/spsa_results/500iter')
+run_sticker_spsa(val_subset_loader, model, 1000, id2id, output_root='/mnt/data/results/spsa_results/1000iter')
