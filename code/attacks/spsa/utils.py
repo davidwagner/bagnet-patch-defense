@@ -117,6 +117,7 @@ def run_sticker_spsa(data_loader, model, num_iter, id2id,
     for n, (image, label) in enumerate(data_loader):
 
         # Move the image to GPU and obtain the top-5 prediction on the clean image.
+        # TODO: if applicable, apply clipping function
         image = image.to(device)
         true_label = id2id[label.item()]
         logits = model(image)

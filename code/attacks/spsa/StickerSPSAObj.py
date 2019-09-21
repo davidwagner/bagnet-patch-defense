@@ -43,12 +43,12 @@ class StickerSPSA:
         all_grad = ml_loss.reshape((-1, 1, 1, 1)) / (delta_x+self.epsilon)
         est_grad = torch.mean(all_grad, dim=0)
         #TODO: remove print
-        print(f'est_grad: {(torch.min(est_grad), torch.max(est_grad))}')
+        #print(f'est_grad: {(torch.min(est_grad), torch.max(est_grad))}')
 
         # update the sticker with clipped gradient
         adam_grad = self.adam_optimizer(est_grad[None])
         #TODO: remove print
-        print(f'adam_grad: {(torch.min(adam_grad), torch.max(adam_grad))}')
+        #print(f'adam_grad: {(torch.min(adam_grad), torch.max(adam_grad))}')
         self.adv_subimg += adam_grad
 
         # Clip the perturbation so that it is in a valid range
