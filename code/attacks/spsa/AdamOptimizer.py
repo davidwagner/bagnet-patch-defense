@@ -54,21 +54,21 @@ class AdamOptimizer:
         self.m = self._beta1 * self.m + (1 - self._beta1) * gradient
         self.v = self._beta2 * self.v + (1 - self._beta2) * gradient**2
         #TODO: remove print
-        print(f"self.m: min: {torch.min(self.m)}, max: {torch.max(self.m)}")
-        print(f"self.v: min: {torch.min(self.v)}, max: {torch.max(self.v)}")
+        #print(f"self.m: min: {torch.min(self.m)}, max: {torch.max(self.m)}")
+        #print(f"self.v: min: {torch.min(self.v)}, max: {torch.max(self.v)}")
         
         bias_correction_1 = 1 - self._beta1**self.t
         bias_correction_2 = 1 - self._beta2**self.t
 
         #TODO:
-        print(f"bias_correction_1: {bias_correction_1}")
-        print(f"bias_correction_2: {bias_correction_2}")
+        #print(f"bias_correction_1: {bias_correction_1}")
+        #print(f"bias_correction_2: {bias_correction_2}")
 
         m_hat = self.m / bias_correction_1
         v_hat = self.v / bias_correction_2
         #TODO: remove print
-        print(f"m_hat: min: {torch.min(m_hat)}, max: {torch.max(m_hat)}")
-        print(f"v_hat: min: {torch.min(v_hat)}, max: {torch.max(v_hat)}")
+        #print(f"m_hat: min: {torch.min(m_hat)}, max: {torch.max(m_hat)}")
+        #print(f"v_hat: min: {torch.min(v_hat)}, max: {torch.max(v_hat)}")
 
         return -self._learning_rate * m_hat / (torch.sqrt(v_hat) + self._epsilon)
 

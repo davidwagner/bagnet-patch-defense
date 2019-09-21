@@ -26,10 +26,21 @@ class PatchAttackWrapper(nn.Module):
         sticker = self._make_sticker(subimg)
         attacked_img = self.img + sticker
         logits = self.model(attacked_img)
+        logits = torch.mean(logits, dim=(1, 2))
         return logits
 
     def _make_sticker(self, subimg):
         sticker = torch.zeros((1, 3, 224, 224)).cuda()
+        sticker[:, :, self.x1:self.x2, self.y1:self.y2] = subimg
+        return sticker
+
+class DynamicPatchAttackWrapper(PatchAttackWrapper):
+    def __init__(self, model, img, size, loc, clip_fn, a=None, b=None):
+        super().__init__(model, img, size, loc, clip_fn, a, b)
+    
+    def _make_sticker(self, subimg):
+        bs, _, _, _ = subimg.shape
+        sticker = torch.zeros((bs, 3, 224, 224)).cuda()
         sticker[:, :, self.x1:self.x2, self.y1:self.y2] = subimg
         return sticker
 
@@ -126,10 +137,10 @@ def run_sticker_spsa(data_loader, model, num_iter, id2id,
                 wrapped_model = wrapper(model, image.clone(), sticker_size, (x, y), clip_fn, a, b)
                 subimg = get_subimgs(image, (x, y), sticker_size)
                 
-                spsa_attack = StickerSPSA(wrapped_model, subimg, label, step_size=0.01) # TODO: adjust step size
+                spsa_attack = StickerSPSA(wrapped_model, subimg, label, step_size=0.1) # TODO: adjust step size
                 for i in range(num_iter):
                     # TODO: remove print
-                    print(f'iteration {i}')
+                    #print(f'iteration {i}')
                     spsa_attack.run()
                 tac = time.time()
                 print('Time duration for one position: {:.2f} min.'.format((tac - tic)/60))
@@ -138,7 +149,7 @@ def run_sticker_spsa(data_loader, model, num_iter, id2id,
                 logits = wrapped_model(spsa_attack.adv_subimg)
                 values, topk = torch.topk(logits, 5, dim=1)
                 topk = topk[0].cpu().numpy()
-                if true_label+100 not in topk: #TODO: remove 100
+                if true_label not in topk: #TODO: remove 100
                     earlyreturn = True
                     print(f"Successfully attack at {(x, y)}")
                     adv_img = image[0].cpu().numpy()

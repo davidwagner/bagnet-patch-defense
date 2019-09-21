@@ -3,7 +3,7 @@ from AdamOptimizer import *
 
 class StickerSPSA:
     def __init__(self, model, subimg, label, sticker_size=(20, 20), 
-                 delta = 0.01, num_samples=128, step_size=0.1, epsilon=10e-8):
+                 delta = 0.01, num_samples=128, step_size=0.01, epsilon=10e-8):
         self.model = model
         self.clean_subimg = subimg.clone()
         self.mean = torch.tensor([0.485, 0.456, 0.406]).reshape((1, 3, 1, 1)).cuda()
