@@ -9,6 +9,8 @@ from clipping import *
 import matplotlib.pyplot as plt
 use_cuda = torch.cuda.is_available()
 device = torch.device("cuda:0" if use_cuda else "cpu")
+gpu_count = torch.cuda.device_count()
+print(f"number of gpu(s): {gpu_count}")
 
 class PatchAttackWrapper(nn.Module):
 
@@ -136,6 +138,8 @@ def run_sticker_spsa(data_loader, model, num_iter, id2id,
                 if earlyreturn: break
                 print(f'Image {n}, current position: {(x, y)}')
                 wrapped_model = wrapper(model, image.clone(), sticker_size, (x, y), clip_fn, a, b)
+                if gpu_count > 1:
+                    wrapped_model = nn.DataParallel(wrapped_model)
                 subimg = get_subimgs(image, (x, y), sticker_size)
                 
                 spsa_attack = StickerSPSA(wrapped_model, subimg, label, step_size=0.1) # TODO: adjust step size

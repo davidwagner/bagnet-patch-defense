@@ -8,8 +8,8 @@ class StickerSPSAModel(nn.Module):
         self.model = model
         self.clean_subimg = subimg.clone()
         self.clean_undo_subimg = undo_imagenet_preprocess_pytorch(subimg)
-        self.mean = torch.tensor([0.485, 0.456, 0.406]).reshape((1, 3, 1, 1)).cuda()
-        self.std = torch.tensor([[0.229, 0.224, 0.225]]).reshape((1, 3, 1, 1)).cuda()
+        self.mean = torch.tensor([0.485, 0.456, 0.406]).reshape((1, 3, 1, 1))
+        self.std = torch.tensor([[0.229, 0.224, 0.225]]).reshape((1, 3, 1, 1))
 
         self.adv_subimg = subimg.clone()
         self.label = label
@@ -24,11 +24,10 @@ class StickerSPSAModel(nn.Module):
         _samples = torch.sign(torch.empty((self.num_samples//2, 3) + self.sticker_size, dtype=self.adv_subimg.dtype).uniform_(-1, 1))
         _samples = _samples.cuda()
         delta_x = self.delta * _samples
-        delta_x = torch.cat([delta_x, -delta_x], dim=0) # so there are 2*num_samples
+        delta_x = torch.cat([delta_x, -delta_x], dim=0) # so there are num_samples
         _sampled_perturb = self.adv_subimg + delta_x
 
-        with torch.no_grad():
-            logits = self.model(_sampled_perturb)
+        logits = self.model(_sampled_perturb)
 
         # calculate the margin logit loss
         label_logit = logits[:, self.label].reshape((-1, ))
@@ -59,5 +58,3 @@ class StickerSPSAModel(nn.Module):
         # Step 3: Preprocess the adversarial subimage
         self.adv_subimg = (adv_undo_subimg - self.mean) / self.std
         return self.adv_subimg
-
-
