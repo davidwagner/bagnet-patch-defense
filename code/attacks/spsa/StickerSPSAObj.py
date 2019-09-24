@@ -6,8 +6,11 @@ class StickerSPSA:
                  delta = 0.01, num_samples=128, step_size=0.01, epsilon=10e-8):
         self.model = model
         self.clean_subimg = subimg.clone()
-        self.mean = torch.tensor([0.485, 0.456, 0.406]).reshape((1, 3, 1, 1)).cuda()
-        self.std = torch.tensor([[0.229, 0.224, 0.225]]).reshape((1, 3, 1, 1)).cuda()
+        #self.mean = torch.tensor([0.485, 0.456, 0.406]).reshape((1, 3, 1, 1)).cuda()
+        #self.std = torch.tensor([[0.229, 0.224, 0.225]]).reshape((1, 3, 1, 1)).cuda()
+        self.mean = torch.tensor([0.485, 0.456, 0.406]).reshape((1, 3, 1, 1)).to(subimg.get_device())
+        self.std = torch.tensor([[0.229, 0.224, 0.225]]).reshape((1, 3, 1, 1)).to(subimg.get_device())
+
         self.clean_undo_subimg = self.undo_imagenet_preprocess_pytorch(subimg)
         self.adv_subimg = subimg.clone()
         self.label = label

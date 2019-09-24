@@ -32,7 +32,7 @@ class PatchAttackWrapper(nn.Module):
         return logits
 
     def _make_sticker(self, subimg):
-        sticker = torch.zeros((1, 3, 224, 224)).cuda()
+        sticker = torch.zeros((1, 3, 224, 224)).to(subimg.get_device())
         sticker[:, :, self.x1:self.x2, self.y1:self.y2] = subimg
         return sticker
 
@@ -55,7 +55,8 @@ class ClippedPatchAttackWrapper(PatchAttackWrapper):
 
     def forward(self, subimg):
         sticker = self._make_sticker(subimg)
-        attacked_img = self.img + sticker
+        img = self.img.to(sticker.get_device())
+        attacked_img = img + sticker
         logits = self.clip_fn(self.model(attacked_img), self.a, self.b)
         logits = torch.mean(logits, dim=(1, 2))
         return logits
@@ -66,7 +67,7 @@ class DynamicClippedPatchAttackWrapper(ClippedPatchAttackWrapper):
     
     def _make_sticker(self, subimg):
         bs, _, _, _ = subimg.shape
-        sticker = torch.zeros((bs, 3, 224, 224)).cuda()
+        sticker = torch.zeros((bs, 3, 224, 224)).to(subimg.get_device())
         sticker[:, :, self.x1:self.x2, self.y1:self.y2] = subimg
         return sticker
 
@@ -120,9 +121,11 @@ def run_sticker_spsa(data_loader, model, num_iter, id2id,
 
         # Move the image to GPU and obtain the top-5 prediction on the clean image.
         # TODO: if applicable, apply clipping function
-        image = image.to(device)
+        image = image.cuda()
         true_label = id2id[label.item()]
         logits = model(image)
+        if clip_fn:
+            logits = clip_fn(logits, a=a, b=b)
         logits = torch.mean(logits, dim=(1, 2))
         _, topk = torch.topk(logits, 5, dim=1)
         topk = topk[0].cpu().numpy()

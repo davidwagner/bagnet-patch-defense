@@ -22,7 +22,7 @@ folder = datasets.ImageFolder("/mnt/data/results/foolbox_results/robust/500-10-2
 id2id = {value:int(key) for key, value in folder.class_to_idx.items()}
 N = 10
 # There are 331 images in the robust dataset
-val_subset_indices = image_partition(42, 330, N)[0]
+val_subset_indices = image_partition(42, 330, N)[1]
 val_subset_loader = torch.utils.data.DataLoader(folder,
                                                 batch_size=1,
                                                 num_workers=4,
