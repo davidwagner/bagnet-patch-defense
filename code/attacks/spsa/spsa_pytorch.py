@@ -7,7 +7,6 @@ import time
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 
-
 use_cuda = torch.cuda.is_available()
 device = torch.device("cuda:0" if use_cuda else "cpu")
 if use_cuda:
@@ -51,4 +50,4 @@ with torch.no_grad():
     print("Accuracy before attack: {}".format(clean_acc))
 
 
-run_sticker_spsa(val_subset_loader, model, 1000, id2id, wrapper=DynamicPatchAttackWrapper, output_root='/mnt/data/results/spsa_results/bagnet-1000iter')
+run_sticker_spsa(val_subset_loader, model, 1000, id2id, output_root='/mnt/data/results/spsa_results/clipped-bagnet-1000iter')

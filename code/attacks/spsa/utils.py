@@ -142,7 +142,7 @@ def run_sticker_spsa(data_loader, model, num_iter, id2id,
                     wrapped_model = nn.DataParallel(wrapped_model)
                 subimg = get_subimgs(image, (x, y), sticker_size)
                 
-                spsa_attack = StickerSPSA(wrapped_model, subimg, label, step_size=0.1) # TODO: adjust step size
+                spsa_attack = StickerSPSA(wrapped_model, subimg, label, step_size=0.01) # TODO: adjust step size
                 for i in range(num_iter):
                     # TODO: remove print
                     #print(f'iteration {i}')
