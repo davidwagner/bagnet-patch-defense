@@ -36,7 +36,7 @@ class StickerSPSA:
             logits = self.model(_sampled_perturb)
 
         # calculate the margin logit loss
-        label_logit = logits[:, self.label].reshape((-1, ))
+        label_logit = logits[:, self.label].reshape((-1, )).clone()
         value, indices = torch.topk(logits, k=5, dim=1)
         logits[:, self.label] = float('-inf')
         best_other_logit, _ = torch.max(logits, dim=1)
