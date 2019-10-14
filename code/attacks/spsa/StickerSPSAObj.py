@@ -37,8 +37,10 @@ class StickerSPSA:
 
         # calculate the margin logit loss
         label_logit = logits[:, self.label].reshape((-1, )).clone()
+        #print(f'{(label_logit.min().item(), label_logit.max().item())}')
         value, indices = torch.topk(logits, k=5, dim=1)
         logits[:, self.label] = float('-inf')
+        #print(f'{(label_logit.min().item(), label_logit.max().item())}')
         best_other_logit, _ = torch.max(logits, dim=1)
         ml_loss = label_logit - best_other_logit
 
@@ -46,12 +48,12 @@ class StickerSPSA:
         all_grad = ml_loss.reshape((-1, 1, 1, 1)) / (delta_x+self.epsilon)
         est_grad = torch.mean(all_grad, dim=0)
         #TODO: remove print
-        #print(f'est_grad: {(torch.min(est_grad), torch.max(est_grad))}')
+        print(f'est_grad: {(torch.min(est_grad).item(), torch.max(est_grad).item())}')
 
         # update the sticker with clipped gradient
         adam_grad = self.adam_optimizer(est_grad[None])
         #TODO: remove print
-        #print(f'adam_grad: {(torch.min(adam_grad), torch.max(adam_grad))}')
+        print(f'adam_grad: {(torch.min(adam_grad).item(), torch.max(adam_grad).item())}')
         self.adv_subimg += adam_grad
 
         # Clip the perturbation so that it is in a valid range
