@@ -3,7 +3,7 @@ from AdamOptimizer import *
 
 class StickerSPSA:
     def __init__(self, model, subimg, label, sticker_size=(20, 20), 
-                 delta = 0.01, num_samples=128, step_size=0.01, epsilon=10e-8):
+                 delta = 0.01, num_samples=256, step_size=0.01, epsilon=10e-8):
         self.model = model
         self.clean_subimg = subimg.clone()
         #self.mean = torch.tensor([0.485, 0.456, 0.406]).reshape((1, 3, 1, 1)).cuda()
@@ -29,7 +29,7 @@ class StickerSPSA:
         _samples = torch.sign(torch.empty((self.num_samples//2, 3) + self.sticker_size, dtype=self.adv_subimg.dtype).uniform_(-1, 1))
         _samples = _samples.cuda()
         delta_x = self.delta * _samples
-        delta_x = torch.cat([delta_x, -delta_x], dim=0) # so there are 2*num_samples
+        delta_x = torch.cat([delta_x, -delta_x], dim=0) 
         _sampled_perturb = self.adv_subimg + delta_x
 
         with torch.no_grad():
@@ -45,15 +45,15 @@ class StickerSPSA:
         ml_loss = label_logit - best_other_logit
 
         # estimate the gradient
-        all_grad = ml_loss.reshape((-1, 1, 1, 1)) / (delta_x+self.epsilon)
+        all_grad = ml_loss.reshape((-1, 1, 1, 1)) / delta_x
         est_grad = torch.mean(all_grad, dim=0)
         #TODO: remove print
-        print(f'est_grad: {(torch.min(est_grad).item(), torch.max(est_grad).item())}')
+        #print(f'est_grad: {(torch.min(est_grad).item(), torch.max(est_grad).item())}')
 
         # update the sticker with clipped gradient
         adam_grad = self.adam_optimizer(est_grad[None])
         #TODO: remove print
-        print(f'adam_grad: {(torch.min(adam_grad).item(), torch.max(adam_grad).item())}')
+        #print(f'adam_grad: {(torch.min(adam_grad).item(), torch.max(adam_grad).item())}')
         self.adv_subimg += adam_grad
 
         # Clip the perturbation so that it is in a valid range

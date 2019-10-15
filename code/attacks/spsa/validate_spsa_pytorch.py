@@ -15,14 +15,15 @@ if use_cuda:
 
 
 #TODO: Finish implementation
-def spsa_run(model, input_image, label, image_size, num_samples=128*128,  delta=0.01, epsilon=10e-8):
+def spsa_run(model, input_image, label, image_size, num_samples=128,  delta=0.01):
     # Sample perturbation from Bernoulli +/- 1 distribution
     _samples = torch.sign(torch.empty((num_samples//2, 3) + image_size, dtype=input_image.dtype).uniform_(-1, 1))
     _samples = _samples.cuda()
     delta_x = delta * _samples
-    delta_x = torch.cat([delta_x, -delta_x], dim=0) # so there are 2*num_samples
+    delta_x = torch.cat([delta_x, -delta_x], dim=0) 
+    #print(f'delta_x: {delta_x}')
     _sampled_perturb = input_image + delta_x
-    print(_sampled_perturb.shape)
+    #print(f'sampled_perturb: {_sampled_perturb}')
 
     with torch.no_grad():
         logits = model(_sampled_perturb)
@@ -34,10 +35,12 @@ def spsa_run(model, input_image, label, image_size, num_samples=128*128,  delta=
     #print(f'{(label_logit.min().item(), label_logit.max().item())}')
     best_other_logit, _ = torch.max(logits, dim=1)
     ml_loss = label_logit - best_other_logit
+    #print(f'ml_loss: {ml_loss}')
 
         # estimate the gradient
-    all_grad = ml_loss.reshape((-1, 1, 1, 1)) / (delta_x+epsilon)
-    est_grad = torch.mean(all_grad, dim=0)
+    all_grad = ml_loss.reshape((-1, 1, 1, 1)) / delta_x
+    #print(f'all_grad: {all_grad}')
+    est_grad = torch.mean(all_grad, dim=0) 
         #TODO: REMOVE PRINT
     print(f'SPSA: gradient: \n{est_grad}')
 
@@ -55,7 +58,9 @@ model = ToyModel()
 model.to(device)
 model.eval()
 
-base_image = np.zeros((3, 1, 1))
+image_size = (2, 2)
+
+base_image = np.zeros((3, )+image_size)
 small_image = base_image.copy()
 small_image[:, :, :] = 1
 print(f'image:\n {small_image}')
@@ -75,4 +80,4 @@ print(f'adversarial image:\n {adversarial}')
 
 
 image = torch.from_numpy(small_image[None]).to(device)
-spsa_run(model, image, 0, (2, 2))
+spsa_run(model, image, 0, image_size)
