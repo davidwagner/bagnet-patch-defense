@@ -76,7 +76,7 @@ criterion = TargetClass(1)
 attack = AdamRandomPGD(fmodel, criterion=criterion, distance=foolbox.distances.Linfinity)
 adversarial = attack(small_image, 0, iterations = 200, epsilon=1, stepsize= 0.01, random_start=False, return_early=True, binary_search=False)
 
-print(f'adversarial image:\n {adversarial}')
+#print(f'adversarial image:\n {adversarial}')
 
 
 image = torch.from_numpy(small_image[None]).to(device)

@@ -157,7 +157,7 @@ def run_sticker_spsa(data_loader, model, num_iter, id2id,
                 logits = wrapped_model(spsa_attack.adv_subimg)
                 values, topk = torch.topk(logits, 5, dim=1)
                 topk = topk[0].cpu().numpy()
-                if true_label not in topk: #TODO: remove 100
+                if true_label in topk: #TODO: add not
                     earlyreturn = True
                     print(f"Successfully attack at {(x, y)}")
                     adv_img = image[0].cpu().numpy()
