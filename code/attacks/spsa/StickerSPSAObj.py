@@ -3,7 +3,7 @@ from AdamOptimizer import *
 
 class StickerSPSA:
     def __init__(self, model, subimg, label, sticker_size=(20, 20), 
-                 delta = 0.01, num_samples=256, step_size=0.01):
+                 delta = 0.01, num_samples=128, step_size=0.01, epsilon=1e-10):
         self.model = model
         self.clean_subimg = subimg.clone()
         #self.mean = torch.tensor([0.485, 0.456, 0.406]).reshape((1, 3, 1, 1)).cuda()
@@ -18,6 +18,7 @@ class StickerSPSA:
         self.adv_pertub = None
         self.num_samples = num_samples
         self.delta = delta
+        self.epsilon = epsilon
         self.adam_optimizer = AdamOptimizer(shape=(1, 3)+sticker_size, learning_rate=step_size)
 
     def undo_imagenet_preprocess_pytorch(self, subimg):
@@ -44,7 +45,7 @@ class StickerSPSA:
         ml_loss = label_logit - best_other_logit
 
         # estimate the gradient
-        all_grad = ml_loss.reshape((-1, 1, 1, 1)) / delta_x
+        all_grad = ml_loss.reshape((-1, 1, 1, 1)) / (delta_x + self.epsilon)
         est_grad = torch.mean(all_grad, dim=0)
         #TODO: remove print
         #print(f'est_grad: {(torch.min(est_grad).item(), torch.max(est_grad).item())}')

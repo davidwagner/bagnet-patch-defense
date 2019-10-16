@@ -157,7 +157,7 @@ def run_sticker_spsa(data_loader, model, num_iter, id2id,
                 logits = wrapped_model(spsa_attack.adv_subimg)
                 values, topk = torch.topk(logits, 5, dim=1)
                 topk = topk[0].cpu().numpy()
-                if true_label in topk: #TODO: add not
+                if true_label not in topk: #TODO: add not
                     earlyreturn = True
                     print(f"Successfully attack at {(x, y)}")
                     adv_img = image[0].cpu().numpy()
@@ -169,4 +169,12 @@ def run_sticker_spsa(data_loader, model, num_iter, id2id,
                     plt.imsave(os.path.join(output_root, f"{n}.png"), adv_img)
                 else:
                     print(f"Fail to attack at {(x, y)}")
+                    #TODO: no need to save failure picture
+                    adv_img = image[0].cpu().numpy()
+                    adv_subimg = spsa_attack.adv_subimg[0].cpu().numpy()
+                    adv_img = apply_sticker(adv_subimg, adv_img, (x, y), sticker_size)
+                    adv_img = (adv_img*std) + mean
+                    adv_img = adv_img.transpose([1, 2, 0])
+                    adv_img = np.clip(adv_img, 0, 1)
+                    plt.imsave(os.path.join(output_root, f"{n}-{x}-{y}.png"), adv_img)
                 print(f"label: {true_label}, topk: {topk}")
