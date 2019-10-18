@@ -50,4 +50,4 @@ with torch.no_grad():
     print("Accuracy before attack: {}".format(clean_acc))
 
 
-run_sticker_spsa(val_subset_loader, model, 100, id2id, output_root='/mnt/data/results/spsa_results/clipped-bagnet-1000iter')
+run_sticker_spsa(val_subset_loader, model, 1000, id2id, output_root='/mnt/data/results/spsa_results/clipped-bagnet-1000iter')
