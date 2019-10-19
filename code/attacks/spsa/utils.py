@@ -127,9 +127,10 @@ def run_sticker_spsa(data_loader, model, num_iter, id2id,
         if clip_fn:
             logits = clip_fn(logits, a=a, b=b)
         logits = torch.mean(logits, dim=(1, 2))
-        _, topk = torch.topk(logits, 5, dim=1)
+        values, topk = torch.topk(logits, 5, dim=1)
         topk = topk[0].cpu().numpy()
         print(f'clean topk {(true_label, topk)}')
+        print(f'clean top-5 logits: {values}')
         mean = np.array([0.485, 0.456, 0.406]).reshape((3, 1, 1))
         std = np.array([[0.229, 0.224, 0.225]]).reshape((3, 1, 1))
         earlyreturn = False
@@ -178,3 +179,4 @@ def run_sticker_spsa(data_loader, model, num_iter, id2id,
                     adv_img = np.clip(adv_img, 0, 1)
                     plt.imsave(os.path.join(output_root, f"{n}-{x}-{y}.png"), adv_img)
                 print(f"label: {true_label}, topk: {topk}")
+                print(f"top-5 logits: {values}")

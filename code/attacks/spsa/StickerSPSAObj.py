@@ -61,11 +61,11 @@ class StickerSPSA:
 
         # Step 1: Make sure the pertubation by itself is valid.
         adv_undo_subimg = self.undo_imagenet_preprocess_pytorch(self.adv_subimg)
-        adv_undo_pertub = adv_undo_subimg - self.clean_undo_subimg 
-        adv_undo_pertub = torch.clamp(adv_undo_pertub, 0, 1)
+        #adv_undo_pertub = adv_undo_subimg - self.clean_undo_subimg 
+        #adv_undo_pertub = torch.clamp(adv_undo_pertub, 0, 1)
 
-        # Step 2: Make sure the image with sticker is valid.
-        adv_undo_subimg = adv_undo_pertub + self.clean_undo_subimg
+        ## Step 2: Make sure the image with sticker is valid.
+        #adv_undo_subimg = adv_undo_pertub + self.clean_undo_subimg
         adv_undo_subimg = torch.clamp(adv_undo_subimg, 0, 1)
 
         # Step 3: Preprocess the adversarial subimage

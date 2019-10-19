@@ -117,6 +117,7 @@ def spsa_run(model, input_image, label, image_size, num_samples=2049,  delta=0.0
         #TODO: REMOVE PRINT
     print(f'SPSA: gradient: \n{est_grad}')
     adam_grad = adam_optimizer(est_grad[None])
+    print(f'SPSA: adam gradient: \n{adam_grad}')
     output_image = input_image + adam_grad
     return output_image
 
@@ -149,12 +150,12 @@ criterion = TargetClass(1)
 attack = AdamRandomPGD(fmodel, criterion=criterion, distance=foolbox.distances.Linfinity)
 adversarial = attack(small_image, 0, iterations = 200, epsilon=1, stepsize= 0.01, random_start=False, return_early=True, binary_search=False)
 
-print(f'adversarial image by pgd:\n {adversarial}')
+#print(f'adversarial image by pgd:\n {adversarial}')
 
 
 image = torch.from_numpy(small_image[None]).to(device)
 adam_optimizer = AdamOptimizer(shape=(1, 3)+image_size, data_type=image.dtype, learning_rate=0.01)
 
-for _ in range(101):
+for _ in range(10):
     image = spsa_run(model, image, 0, image_size)
-print(f'adversarial image by spsa:\n {image}')
+#print(f'adversarial image by spsa:\n {image}')
