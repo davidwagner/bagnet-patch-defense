@@ -37,6 +37,7 @@ model = pytorchnet.bagnet33(pretrained=True, avg_pool=False).to(device)
 model.eval()
 
 # Get clean prediction and logits
+N = 1
 with torch.no_grad():
     count = 0
     for image, label in val_loader:
@@ -61,20 +62,24 @@ stride = 20
 clip_fn=tanh_linear
 a=0.05
 b=-1
-number_iter = 1000
+number_iter = 250
+x = 20
+y = 20
+n = 13
 
 
 # Attack
 subimg = get_subimgs(image, (x, y), sticker_size)
 
-wrapped_model = wrapper(model, image.clone(), sticker_size, (20, 20), clip_fn, a, b)
+wrapped_model = wrapper(model, image.clone(), sticker_size, (x, y), clip_fn, a, b)
 
 if gpu_count > 1:
     wrapped_model = nn.DataParallel(wrapped_model)
 
 spsa_attack = StickerSPSA(wrapped_model, subimg, true_label, sticker_size=sticker_size, step_size=step_size)
 
-for _ in range(num_iter):
+for i in range(number_iter):
+    print(i)
     spsa_attack.run()
 
 
@@ -90,7 +95,7 @@ if true_label not in topk: #TODO: add not
     adv_img = (adv_img*std) + mean
     adv_img = adv_img.transpose([1, 2, 0])
     adv_img = np.clip(adv_img, 0, 1)
-    plt.imsave(os.path.join(output_root, f"{n}.png"), adv_img)
+    plt.imsave(os.path.join(output_root, f"{n}-{number_iter}.png"), adv_img)
 else:
     print(f"Fail to attack at {(x, y)}")
     #TODO: no need to save failure picture
@@ -100,6 +105,6 @@ else:
     adv_img = (adv_img*std) + mean
     adv_img = adv_img.transpose([1, 2, 0])
     adv_img = np.clip(adv_img, 0, 1)
-    plt.imsave(os.path.join(output_root, f"{n}-{x}-{y}.png"), adv_img)
+    plt.imsave(os.path.join(output_root, f"{n}-{x}-{y}-{number_iter}.png"), adv_img)
 print(f"label: {true_label}, topk: {topk}")
 print(f"top-5 logits: {values}")
