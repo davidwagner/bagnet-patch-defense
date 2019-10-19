@@ -47,27 +47,15 @@ class StickerSPSA:
         # estimate the gradient
         all_grad = ml_loss.reshape((-1, 1, 1, 1)) / (delta_x + self.epsilon)
         est_grad = torch.mean(all_grad, dim=0)
-        #TODO: remove print
-        #print(f'est_grad: {(torch.min(est_grad).item(), torch.max(est_grad).item())}')
-
-        # update the sticker with clipped gradient
+        
         adam_grad = self.adam_optimizer(est_grad[None])
-        #TODO: remove print
-        #print(f'adam_grad: {(torch.min(adam_grad).item(), torch.max(adam_grad).item())}')
+        
         self.adv_subimg += adam_grad
 
-        # Clip the perturbation so that it is in a valid range
-        # There several steps:
-
-        # Step 1: Make sure the pertubation by itself is valid.
+        # clip the pixel to the valid range
         adv_undo_subimg = self.undo_imagenet_preprocess_pytorch(self.adv_subimg)
-        #adv_undo_pertub = adv_undo_subimg - self.clean_undo_subimg 
-        #adv_undo_pertub = torch.clamp(adv_undo_pertub, 0, 1)
-
-        ## Step 2: Make sure the image with sticker is valid.
-        #adv_undo_subimg = adv_undo_pertub + self.clean_undo_subimg
+        
         adv_undo_subimg = torch.clamp(adv_undo_subimg, 0, 1)
 
-        # Step 3: Preprocess the adversarial subimage
         self.adv_subimg = (adv_undo_subimg - self.mean) / self.std
 

@@ -116,7 +116,7 @@ def undo_imagenet_preprocess_pytorch(image):
     return (image*std) + mean
 
 def run_sticker_spsa(data_loader, model, num_iter, id2id,
-                     wrapper=DynamicClippedPatchAttackWrapper, sticker_size=(20, 20), stride=20, clip_fn=tanh_linear, a=0.05, b=-1, output_root='./'):
+                     wrapper=DynamicClippedPatchAttackWrapper, sticker_size=(20, 20), step_size=0.01, stride=20, clip_fn=tanh_linear, a=0.05, b=-1, output_root='./'):
     for n, (image, label) in enumerate(data_loader):
 
         # Move the image to GPU and obtain the top-5 prediction on the clean image.
@@ -146,7 +146,7 @@ def run_sticker_spsa(data_loader, model, num_iter, id2id,
                     wrapped_model = nn.DataParallel(wrapped_model)
                 subimg = get_subimgs(image, (x, y), sticker_size)
                 
-                spsa_attack = StickerSPSA(wrapped_model, subimg, label, step_size=0.01) # TODO: adjust step size
+                spsa_attack = StickerSPSA(wrapped_model, subimg, true_label, sticker_size=sticker_size, step_size=step_size) # TODO: adjust step size
                 for i in range(num_iter):
                     # TODO: remove print
                     #print(f'iteration {i}')
