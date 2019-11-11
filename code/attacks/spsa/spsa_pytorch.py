@@ -19,20 +19,21 @@ normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
 imagenet_transform = transforms.Compose([transforms.ToTensor(), 
                                          normalize])
 #/mnt/data/results/foolbox_results/robust/500-10-20x20-20-bagnet33-tanh_linear-AdamRandomPGD-False-1.0-40-0.1
-folder = datasets.ImageFolder("./spsa_validation_images/vulnerable", transform=imagenet_transform)
+#folder = datasets.ImageFolder("./spsa_validation_images/vulnerable", transform=imagenet_transform)
+folder = datasets.ImageFolder("/mnt/data/results/foolbox_results/robust/500-10-20x20-20-bagnet33-tanh_linear-AdamRandomPGD-False-1.0-40-0.1", transform=imagenet_transform)
 id2id = {value:int(key) for key, value in folder.class_to_idx.items()}
-N = 13
+N = 10
 # There are 331 images in the robust dataset
-#val_subset_indices = image_partition(42, 330, N)[0]
-#val_subset_loader = torch.utils.data.DataLoader(folder,
-#                                                batch_size=1,
-#                                                num_workers=4,
-#                                                sampler=torch.utils.data.sampler.SubsetRandomSampler(val_subset_indices))
-
+val_subset_indices = image_partition(42, 330, N)[0]
 val_subset_loader = torch.utils.data.DataLoader(folder,
                                                 batch_size=1,
-                                                num_workers=4
-                                                )
+                                                num_workers=4,
+                                                sampler=torch.utils.data.sampler.SubsetRandomSampler(val_subset_indices))
+
+#val_subset_loader = torch.utils.data.DataLoader(folder,
+#                                                batch_size=1,
+#                                                num_workers=4
+#                                                )
 
 # load pretrained model
 model = pytorchnet.bagnet33(pretrained=True, avg_pool=False).to(device)
@@ -56,6 +57,6 @@ with torch.no_grad():
     print("Accuracy before attack: {}".format(clean_acc))
 
 sticker_size = (20, 20)
-step_size = 0.1
+step_size = 0.5
 number_iter = 500
-run_sticker_spsa(val_subset_loader, model, number_iter, id2id, sticker_size=sticker_size, step_size=step_size, output_root='/mnt/data/results/spsa_results/vulnerable_250iter')
+run_sticker_spsa(val_subset_loader, model, number_iter, id2id, sticker_size=sticker_size, step_size=step_size, output_root='/mnt/data/results/spsa_results/clipped-bagnet-500iter_0.5')
