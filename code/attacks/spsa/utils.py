@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 import time
+import torch.nn.functional as F
 from StickerSPSAObj import *
 from StickerSPSAModel import *
 from clipping import *
@@ -180,3 +181,122 @@ def run_sticker_spsa(data_loader, model, num_iter, id2id,
                     plt.imsave(os.path.join(output_root, f"{n}-{x}-{y}.png"), adv_img)
                 print(f"label: {true_label}, topk: {topk}")
                 print(f"top-5 logits: {values}")
+
+def pick_targeted_classes(logits, k=5, case='avg'):
+    """
+    Input:
+    - logits (pytorch tensor): clipped logits (clipped patch logits after avg). Shape (N, 1000)
+    - k (int): top-k prediction
+    - case (string): ['best', 'avg', 'worst']
+            'best': the class ranked at (k+1)-th
+            'avg': randomly sample one class outside of the top-k predictions
+            'worst': the class ranked the last
+    """
+    assert case in ['best', 'avg', 'worst'], 'case must be "best", "avg", or "worst"'
+    if case == 'best':
+        _, topk = torch.topk(logits, k=k+1, dim=1) # shape (N, k+1) 
+        return topk[:, -1]
+    if case == 'avg':
+        _, topk = torch.topk(logits, k=1000, dim=1) # shape (N, 1000) 
+        indices = torch.randint(low=5, high=999, size=(1,))
+        return torch.index_select(topk, 1, indices.cuda()).reshape((-1,))
+    else: # if case == 'worst'
+        _, topk = torch.topk(logits, k=1000, dim=1) # shape (N, 1000) 
+        return topk[:, -1]
+
+def image_partition(seed, partition_size):
+    idx_lst = np.arange(50000)
+    np.random.seed(seed)
+    np.random.shuffle(idx_lst)
+    num_per_partition = int(50000/partition_size)
+    idx_lst = np.split(idx_lst, num_per_partition)
+    return idx_lst
+
+
+def get_subimg(image, loc, size):
+    x1, y1 = loc
+    x2, y2 = x1 + size[0], y1 + size[1]
+    return image[:, x1:x2, y1:y2]
+
+class StickerSPSAEval:
+    def __init__(self, model, subimg, label, sticker_size=(20, 20), 
+                 delta = 0.01, num_samples=128, step_size=0.01, epsilon=1e-10):
+        self.model = model
+        self.clean_subimg = subimg.clone()
+        #self.mean = torch.tensor([0.485, 0.456, 0.406]).reshape((1, 3, 1, 1)).cuda()
+        #self.std = torch.tensor([[0.229, 0.224, 0.225]]).reshape((1, 3, 1, 1)).cuda()
+        self.mean = torch.tensor([0.485, 0.456, 0.406]).reshape((1, 3, 1, 1)).to(subimg.get_device())
+        self.std = torch.tensor([[0.229, 0.224, 0.225]]).reshape((1, 3, 1, 1)).to(subimg.get_device())
+
+        self.clean_undo_subimg = self.undo_imagenet_preprocess_pytorch(subimg)
+        self.adv_subimg = subimg.clone()
+        self.label = label
+        self.loss_fn = torch.nn.CrossEntropyLoss()
+        self.sticker_size = sticker_size
+        self.adv_pertub = None
+        self.num_samples = num_samples
+        self.delta = delta
+        self.epsilon = epsilon
+        self.label_cfd = 0
+        self.best_other_cfd = 0
+        self.worst_other_cfd = 0
+        self.adam_optimizer = AdamOptimizer(shape=(1, 3)+sticker_size, learning_rate=step_size)
+
+    def undo_imagenet_preprocess_pytorch(self, subimg):
+        return (subimg*self.std) + self.mean
+    
+    def run(self):
+        # Sample perturbation from Bernoulli +/- 1 distribution
+        _samples = torch.sign(torch.empty((self.num_samples//2, 3) + self.sticker_size, dtype=self.adv_subimg.dtype).uniform_(-1, 1))
+        _samples = _samples.cuda()
+        delta_x = self.delta * _samples
+        delta_x = torch.cat([delta_x, -delta_x], dim=0) 
+        _sampled_perturb = self.adv_subimg + delta_x
+
+        with torch.no_grad():
+            logits = self.model(_sampled_perturb)
+        cfd = F.softmax(logits, dim=1)
+
+            # calculate the margin logit loss
+        self.label_cfd = cfd[:, self.label].reshape((-1, )).clone()
+        self.label_cfd = torch.mean(self.label_cfd).item()
+        cfd[:, self.label] = float('-inf')
+        #print(f'{(label_logit.min().item(), label_logit.max().item())}')
+        value, indices = torch.topk(cfd, k=5, dim=1)
+        self.best_other_cfd = torch.mean(value[:, 0]).item()
+        self.worst_other_cfd = torch.mean(value[:, -1]).item()
+
+        """ margin-based loss """
+        # calculate the margin logit loss
+        self.label_logit = logits[:, self.label].reshape((-1, )).clone()
+        #print(f'{(label_logit.min().item(), label_logit.max().item())}')
+        value, indices = torch.topk(logits, k=5, dim=1)
+        logits[:, self.label] = float('-inf')
+        #print(f'{(label_logit.min().item(), label_logit.max().item())}')
+        values, _ = torch.topk(logits, 5, dim=1)
+        self.best_other_logit = values[:, 0]
+        self.worst_other_logit = values[:, -1]
+        #loss = self.label_logit - self.best_other_logit
+        loss = self.label_logit - self.worst_other_logit
+
+        """cross-entropy
+        label = torch.full((self.num_samples,), self.label, dtype=torch.long).cuda()
+        loss = self.loss_fn(logits, label)
+        """
+        
+        # estimate the gradient
+        all_grad = loss.reshape((-1, 1, 1, 1)) / (delta_x + self.epsilon)
+        est_grad = torch.mean(all_grad, dim=0)
+        
+        adam_grad = self.adam_optimizer(est_grad[None])
+        
+        self.adv_subimg += adam_grad
+
+        # clip the pixel to the valid range
+        adv_undo_subimg = self.undo_imagenet_preprocess_pytorch(self.adv_subimg)
+        
+        adv_undo_subimg = torch.clamp(adv_undo_subimg, 0, 1)
+
+        self.adv_subimg = (adv_undo_subimg - self.mean) / self.std
+
+

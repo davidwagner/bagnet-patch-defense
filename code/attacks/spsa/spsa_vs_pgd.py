@@ -11,6 +11,7 @@ import foolbox
 import torch.nn.functional as F
 from foolbox_alpha.attacks import AdamRandomPGD
 from foolbox.criteria import TopKMisclassification
+from foolbox.criteria import TargetClass
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 
@@ -18,7 +19,7 @@ use_cuda = torch.cuda.is_available()
 device = torch.device("cuda:0" if use_cuda else "cpu")
 gpu_count = torch.cuda.device_count()
 
-output_root = "/mnt/data/results/spsa_results/spsa_vs_pgd/untargeted_round2_0.1_500"
+output_root = "/mnt/data/results/spsa_results/spsa_vs_pgd/targeted"
 #output_root = "."
 def get_subimg(image, loc, size):
     x1, y1 = loc
@@ -26,7 +27,7 @@ def get_subimg(image, loc, size):
     return image[:, x1:x2, y1:y2]
 
 class StickerSPSA:
-    def __init__(self, model, subimg, label, sticker_size=(20, 20), 
+    def __init__(self, model, subimg, label, targeted_class = None, sticker_size=(20, 20), 
                  delta = 0.01, num_samples=128, step_size=0.01, epsilon=1e-10):
         self.model = model
         self.clean_subimg = subimg.clone()
@@ -45,8 +46,8 @@ class StickerSPSA:
         self.delta = delta
         self.epsilon = epsilon
         self.label_cfd = 0
-        self.best_other_cfd = 0
-        self.worst_other_cfd = 0
+        self.targeted_cfd = 0
+        self.targeted_class = targeted_class
         self.adam_optimizer = AdamOptimizer(shape=(1, 3)+sticker_size, learning_rate=step_size)
 
     def undo_imagenet_preprocess_pytorch(self, subimg):
@@ -67,30 +68,26 @@ class StickerSPSA:
             # calculate the margin logit loss
         self.label_cfd = cfd[:, true_label].reshape((-1, )).clone()
         self.label_cfd = torch.mean(self.label_cfd).item()
-        cfd[:, true_label] = float('-inf')
         #print(f'{(label_logit.min().item(), label_logit.max().item())}')
-        value, indices = torch.topk(cfd, k=5, dim=1)
-        self.best_other_cfd = torch.mean(value[:, 0]).item()
-        self.worst_other_cfd = torch.mean(value[:, -1]).item()
+        self.targeted_cfd = cfd[:, self.targeted_class].reshape((-1, )).clone()
+        self.targeted_cfd = torch.mean(self.targeted_cfd).item()
 
-        """ margin-based loss """
+        """ margin-based loss
         # calculate the margin logit loss
         self.label_logit = logits[:, self.label].reshape((-1, )).clone()
         #print(f'{(label_logit.min().item(), label_logit.max().item())}')
         value, indices = torch.topk(logits, k=5, dim=1)
         logits[:, self.label] = float('-inf')
         #print(f'{(label_logit.min().item(), label_logit.max().item())}')
+        self.best_other_logit, _ = torch.max(logits, dim=1)
         values, _ = torch.topk(logits, 5, dim=1)
-        self.best_other_logit = values[:, 0]
-        self.worst_other_logit = values[:, -1]
-        #loss = self.label_logit - self.best_other_logit
-        loss = self.label_logit - self.worst_other_logit
+        self.worst_other_logit = values[-1]
+        ml_loss = self.label_logit - self.best_other_logit
+        """
 
-        """cross-entropy
+        """cross-entropy"""
         label = torch.full((self.num_samples,), self.label, dtype=torch.long).cuda()
         loss = self.loss_fn(logits, label)
-        """
-        
         # estimate the gradient
         all_grad = loss.reshape((-1, 1, 1, 1)) / (delta_x + self.epsilon)
         est_grad = torch.mean(all_grad, dim=0)
@@ -166,6 +163,8 @@ for img_idx in [0, 1, 2, 3, 4, 6, 7, 8, 10, 11, 12]:
             logits = model(image)
         logits = tanh_linear(logits, a=0.05, b=-1)
         logits = torch.mean(logits, dim=(1, 2))
+        # targeted attack: average case
+        targeted_class = pick_targeted_classes(logits)[0].item()
         _, topk = torch.topk(logits, k=5, dim=1)
         topk = topk.cpu().numpy()[0]
         cfd = F.softmax(logits, dim=1)
@@ -173,23 +172,17 @@ for img_idx in [0, 1, 2, 3, 4, 6, 7, 8, 10, 11, 12]:
             # calculate the margin logit loss
         init_label_cfd = cfd[:, true_label].reshape((-1, )).clone().item()
             #print(f'{(label_logit.min().item(), label_logit.max().item())}')
-        cfd[:, true_label] = float('-inf')
             #print(f'{(label_logit.min().item(), label_logit.max().item())}')
-        value, indices = torch.topk(cfd, k=5, dim=1)
-        value = value[0]
-        init_best_other_cfd = value[0].item()
-        init_worst_other_cfd = value[-1].item()
+        init_targeted_cfd = cfd[:, targeted_class].reshape((-1, )).clone().item()
 
             #print(f'label_logit: {label_logit}, best_other: {best_other_logit}, worst_other: {worst_other_logit}')
     print(f"label: {true_label}, topk: {topk}")
 
     # Init logit list for spsa and pgd
     label_cfd_list = [init_label_cfd]
-    best_cfd_list = [init_best_other_cfd]
-    worst_cfd_list = [init_worst_other_cfd]
+    targeted_cfd_list = [init_targeted_cfd]
     pgd_label_cfd_list_head = [init_label_cfd]
-    pgd_best_cfd_list_head = [init_best_other_cfd]
-    pgd_worst_cfd_list_head = [init_worst_other_cfd]
+    pgd_targeted_cfd_list_head = [init_targeted_cfd]
 
     # SPSA configuration
     wrapper=DynamicClippedPatchAttackWrapper
@@ -199,7 +192,7 @@ for img_idx in [0, 1, 2, 3, 4, 6, 7, 8, 10, 11, 12]:
     clip_fn=tanh_linear
     a=0.05
     b=-1
-    number_iter = 500
+    number_iter = 250
     x, y = idx2loc[img_idx]
 
     subimg = get_subimgs(image, (x, y), sticker_size)
@@ -216,10 +209,9 @@ for img_idx in [0, 1, 2, 3, 4, 6, 7, 8, 10, 11, 12]:
         print(f"spsa: iter{j}")
         spsa_attack.run()
         label_cfd_list.append(spsa_attack.label_cfd)
-        best_cfd_list.append(spsa_attack.best_other_cfd)
-        worst_cfd_list.append(spsa_attack.worst_other_cfd)
+        targeted_cfd_list.append(spsa_attack.targeted_cfd)
 
-    spsa_list_collector = np.array([label_cfd_list, best_cfd_list, worst_cfd_list])
+    spsa_list_collector = np.array([label_cfd_list, targeted_cfd_list])
 
 # Section 2. PGD
     wrapper = ClippedPatchAttackWrapper
@@ -241,7 +233,7 @@ for img_idx in [0, 1, 2, 3, 4, 6, 7, 8, 10, 11, 12]:
         wrapped_model.eval()
         print('image {}, current location: {}'.format(img_idx, (x, y)))
         fmodel = foolbox.models.PyTorchModel(wrapped_model, bounds=(0, 1), num_classes=1000, preprocessing=(mean, std))
-        criterion = TopKMisclassification(5)
+        criterion = TargetClass(targeted_class)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             attack = attack_alg(fmodel, criterion=criterion, distance=foolbox.distances.Linfinity)
@@ -249,13 +241,12 @@ for img_idx in [0, 1, 2, 3, 4, 6, 7, 8, 10, 11, 12]:
         subimg = get_subimg(image, (x, y), attack_size)
         adversarial = attack(subimg, label, iterations = max_iter, epsilon=1., stepsize=0.01, random_start=True, return_early=False, binary_search=False)
         pgd_label_cfd_list = pgd_label_cfd_list_head + attack.label_cfd_list
-        pgd_best_cfd_list = pgd_best_cfd_list_head + attack.best_cfd_list
-        pgd_worst_cfd_list = pgd_worst_cfd_list_head + attack.worst_cfd_list
+        pgd_targeted_cfd_list = pgd_targeted_cfd_list_head + attack.targeted_cfd_list
 
-        pgd_list_collector = np.array([pgd_label_cfd_list, pgd_best_cfd_list, pgd_worst_cfd_list])
+        pgd_list_collector = np.array([pgd_label_cfd_list, pgd_targeted_cfd_list])
     
     # pickle dump
-    spsa_pgd_collector = np.array([spsa_list_collector, pgd_list_collector, f'{img_idx}'])
+    spsa_pgd_collector = np.array([spsa_list_collector, pgd_list_collector])
     file = open('{}/vulnerable{}.npy'.format(output_root, img_idx), 'wb')
     pickle.dump(spsa_pgd_collector, file)
     file.close()
