@@ -17,6 +17,7 @@ from absl import app, flags
 import os
 
 flags.DEFINE_integer('N', 500, 'number of images')
+flags.DEFINE_integer('chunkid', 0, 'partition chunk id')
 flags.DEFINE_integer('nb_iter', 500, 'number of iterations for PGD')
 flags.DEFINE_float('stepsize', 0.1, 'stepsize of spsa')
 flags.DEFINE_string('data_path', '/mnt/data/imagenet', 'data directory')
@@ -28,7 +29,7 @@ def main(argv):
     device = torch.device("cuda:0" if use_cuda else "cpu")
     gpu_count = torch.cuda.device_count()
     
-    NAME = '{}-{}-{}'.format(FLAGS.N, FLAGS.nb_iter, FLAGS.stepsize)
+    NAME = '{}-{}-{}-{}'.format(FLAGS.N, FLAGS.chunkid, FLAGS.nb_iter, FLAGS.stepsize)
 
     OUTPUT_PATH = os.path.join(FLAGS.output_root, NAME)
     if not os.path.exists(OUTPUT_PATH):
@@ -54,15 +55,16 @@ def main(argv):
                                              transforms.ToTensor()])
 
     # Dataset for spsa
-    folder = datasets.ImageFolder(FLAGS.data_path, transform=imagenet_transform)
+    folder = datasets.ImageNet(FLAGS.data_path, split='val', transform=imagenet_transform)
     
     # Dataset for foolbox: no normalization
-    folder_foolbox = datasets.ImageFolder(FLAGS.data_path, transform=imagenet_transform_foolbox)
+    folder_foolbox = datasets.ImageNet(FLAGS.data_path, split='val', transform=imagenet_transform_foolbox)
     
     imagenet_mean = torch.Tensor([0.485, 0.456, 0.406]).view((3, 1, 1))
     imagenet_std = torch.Tensor([0.229, 0.224, 0.225]).view((3, 1, 1))
-    for img_idx in range(FLAGS.N):
-    #for img_idx in [11]:
+    img_idx_list = image_partition(42, FLAGS.N)[FLAGS.chunkid]
+    for img_idx in img_idx_list:
+        print(f'image {img_idx}')
         val_subset_indices = [img_idx]
     
         val_loader = torch.utils.data.DataLoader(folder,
@@ -104,7 +106,7 @@ def main(argv):
         print(f"label: {label}, topk: {topk}")
         if label not in topk:
             print("Not running the attack because the original input is already misclassified.")
-            break
+            continue
     
         # Init logit list for spsa and pgd
         label_cfd_list = [init_label_cfd]
