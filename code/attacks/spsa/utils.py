@@ -240,6 +240,7 @@ class StickerSPSAEval:
         self.label_cfd = 0
         self.best_other_cfd = 0
         self.worst_other_cfd = 0
+        self.current_loss = 0
         self.adam_optimizer = AdamOptimizer(shape=(1, 3)+sticker_size, learning_rate=step_size)
 
     def undo_imagenet_preprocess_pytorch(self, subimg):
@@ -255,16 +256,16 @@ class StickerSPSAEval:
 
         with torch.no_grad():
             logits = self.model(_sampled_perturb)
-        cfd = F.softmax(logits, dim=1)
+        #cfd = F.softmax(logits, dim=1)
 
-            # calculate the margin logit loss
-        self.label_cfd = cfd[:, self.label].reshape((-1, )).clone()
-        self.label_cfd = torch.mean(self.label_cfd).item()
-        cfd[:, self.label] = float('-inf')
-        #print(f'{(label_logit.min().item(), label_logit.max().item())}')
-        value, indices = torch.topk(cfd, k=5, dim=1)
-        self.best_other_cfd = torch.mean(value[:, 0]).item()
-        self.worst_other_cfd = torch.mean(value[:, -1]).item()
+        #    # calculate the margin logit loss
+        #self.label_cfd = cfd[:, self.label].reshape((-1, )).clone()
+        #self.label_cfd = torch.mean(self.label_cfd).item()
+        #cfd[:, self.label] = float('-inf')
+        ##print(f'{(label_logit.min().item(), label_logit.max().item())}')
+        #value, indices = torch.topk(cfd, k=5, dim=1)
+        #self.best_other_cfd = torch.mean(value[:, 0]).item()
+        #self.worst_other_cfd = torch.mean(value[:, -1]).item()
 
         """ margin-based loss """
         # calculate the margin logit loss
@@ -278,6 +279,7 @@ class StickerSPSAEval:
         self.worst_other_logit = values[:, -1]
         #loss = self.label_logit - self.best_other_logit
         loss = self.label_logit - self.worst_other_logit
+        self.current_loss = torch.mean(loss).item()
 
         """cross-entropy
         label = torch.full((self.num_samples,), self.label, dtype=torch.long).cuda()
@@ -298,5 +300,3 @@ class StickerSPSAEval:
         adv_undo_subimg = torch.clamp(adv_undo_subimg, 0, 1)
 
         self.adv_subimg = (adv_undo_subimg - self.mean) / self.std
-
-
