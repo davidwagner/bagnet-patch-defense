@@ -133,7 +133,7 @@ def main(argv):
         if gpu_count > 1:
             wrapped_model = nn.DataParallel(wrapped_model)
     
-        spsa_attack = StickerSPSAEval(wrapped_model, subimg, label, sticker_size=sticker_size, step_size=step_size)
+        spsa_attack = StickerSPSAEval(wrapped_model, subimg, label, sticker_size=sticker_size, step_size=step_size, random_init=True)
         
         # SPSA attack
         for j in range(FLAGS.nb_iter):
