@@ -5,7 +5,6 @@ import numpy as np
 import time
 import torch.nn.functional as F
 from StickerSPSAObj import *
-from StickerSPSAModel import *
 from clipping import *
 import matplotlib.pyplot as plt
 use_cuda = torch.cuda.is_available()
