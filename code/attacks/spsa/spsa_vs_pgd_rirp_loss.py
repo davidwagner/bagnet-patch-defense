@@ -20,6 +20,7 @@ flags.DEFINE_integer('N', 500, 'number of images')
 flags.DEFINE_integer('chunkid', 0, 'partition chunk id')
 flags.DEFINE_integer('nb_iter', 500, 'number of iterations for PGD')
 flags.DEFINE_float('stepsize', 0.1, 'stepsize of spsa')
+flags.DEFINE_boolean('random_init', True, 'random init')
 flags.DEFINE_string('data_path', '/mnt/data/imagenet', 'data directory')
 flags.DEFINE_string('output_root', "/mnt/data/results/spsa_results/spsa_vs_pgd/", "output root")
 FLAGS = flags.FLAGS
@@ -29,7 +30,7 @@ def main(argv):
     device = torch.device("cuda:0" if use_cuda else "cpu")
     gpu_count = torch.cuda.device_count()
     
-    NAME = '{}-{}-{}-{}'.format(FLAGS.N, FLAGS.chunkid, FLAGS.nb_iter, FLAGS.stepsize)
+    NAME = '{}-{}-{}-{}-{}'.format(FLAGS.N, FLAGS.chunkid, FLAGS.nb_iter, FLAGS.stepsize, FLAGS.random_init)
 
     OUTPUT_PATH = os.path.join(FLAGS.output_root, NAME)
     if not os.path.exists(OUTPUT_PATH):

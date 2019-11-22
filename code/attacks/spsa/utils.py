@@ -230,7 +230,7 @@ class StickerSPSAEval:
 
         self.clean_undo_subimg = self.undo_imagenet_preprocess_pytorch(subimg)
         if random_init:
-            self.adv_subimg = (torch.rand((1, 3)+sticker_size) - self.mean)/self.std
+            self.adv_subimg = (torch.rand((1, 3)+sticker_size).to(torch.float).cuda() - self.mean)/self.std
         else:
             self.adv_subimg = subimg.clone()
         self.label = label

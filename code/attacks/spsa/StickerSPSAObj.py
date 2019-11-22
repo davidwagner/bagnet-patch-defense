@@ -3,7 +3,7 @@ from AdamOptimizer import *
 
 class StickerSPSA:
     def __init__(self, model, subimg, label, sticker_size=(20, 20), 
-                 delta = 0.01, num_samples=128, step_size=0.01, epsilon=1e-10):
+                 delta = 0.01, num_samples=128, step_size=0.01, random_init=True, epsilon=1e-10):
         self.model = model
         self.clean_subimg = subimg.clone()
         #self.mean = torch.tensor([0.485, 0.456, 0.406]).reshape((1, 3, 1, 1)).cuda()
@@ -12,7 +12,10 @@ class StickerSPSA:
         self.std = torch.tensor([[0.229, 0.224, 0.225]]).reshape((1, 3, 1, 1)).to(subimg.get_device())
 
         self.clean_undo_subimg = self.undo_imagenet_preprocess_pytorch(subimg)
-        self.adv_subimg = subimg.clone()
+        if random_init:
+            self.adv_subimg = (torch.rand((1, 3)+sticker_size).to(torch.float).cuda() - self.mean)/self.std
+        else:
+            self.adv_subimg = subimg.clone()
         self.label = label
         self.sticker_size = sticker_size
         self.adv_pertub = None
