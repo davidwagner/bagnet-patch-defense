@@ -276,16 +276,17 @@ def foolbox_upper_bound(model, wrapper, data_loader, attack_size,
                     print(msg)
                     logging.info(msg)
                     plt_name = '{}.png'.format(total_images)
-                    if not targeted:
-                        save_path = os.path.join(output_root, str(label))
-                    else:
-                        save_path = os.path.join(output_root, '{}'.format(label))
+                    save_path = os.path.join(output_root, str(label))
                     if not os.path.exists(save_path):
                         os.mkdir(save_path)
                     attacked_img = apply_sticker(adversarial, image, (x, y), attack_size).transpose([1, 2, 0])
                     plt.imsave(os.path.join(save_path, plt_name), attacked_img)
                     image = image.transpose([1, 2, 0])
-                    plt.imsave(os.path.join(save_path, '{}-{}.png'.format(label, total_images)), image)
+                    if not targeted:
+                        plt.imsave(os.path.join(save_path, '{}-{}.png'.format(label, total_images)), image)
+                    else:
+                        plt.imsave(os.path.join(save_path, '{}-{}-{}.png'.format(label, total_images, targeted_class)), image)
+
                     affected_imgs += 1
                     flag = False
                     break
