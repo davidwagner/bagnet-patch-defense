@@ -254,6 +254,7 @@ def foolbox_upper_bound(model, wrapper, data_loader, attack_size,
         c, h, w = image.shape
         total_images += 1
         flag = True
+        targeted_class = pick_targeted_classes(logits, k=1, case=case)[0].item()
         for x in range(0, h - attack_size[0] + 1, stride):
             for y in range(0, w - attack_size[1] + 1, stride):
                 wrapped_model = wrapper(model, prep_images, attack_size, (x, y), clip_fn, a, b)
@@ -263,7 +264,7 @@ def foolbox_upper_bound(model, wrapper, data_loader, attack_size,
                 if not targeted:
                     criterion = TopKMisclassification(k)
                 else:
-                    targeted_class = pick_targeted_classes(logits, k=1, case=case)[0].item()
+                    #targeted_class = pick_targeted_classes(logits, k=1, case=case)[0].item()
                     criterion = TargetClass(targeted_class)
                 attack = attack_alg(fmodel, criterion=criterion, distance=foolbox.distances.Linfinity)
                 subimg = get_subimg(image, (x, y), attack_size)

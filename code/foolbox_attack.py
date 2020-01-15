@@ -46,7 +46,8 @@ def main(argv):
             [NAME].log
             dataset/
     """
-    NAME = '{}-{}-{}x{}-{}-{}-{}-{}-{}-{}-{}-{}'.format(FLAGS.N, FLAGS.chunkid, FLAGS.attack_size[0], FLAGS.attack_size[1], FLAGS.stride, FLAGS.model, FLAGS.clip_fn, FLAGS.attack_alg, FLAGS.targeted, FLAGS.eps, FLAGS.nb_iter, FLAGS.stepsize)
+    #NAME = '{}-{}-{}x{}-{}-{}-{}-{}-{}-{}-{}-{}'.format(FLAGS.N, FLAGS.chunkid, FLAGS.attack_size[0], FLAGS.attack_size[1], FLAGS.stride, FLAGS.model, FLAGS.clip_fn, FLAGS.attack_alg, FLAGS.targeted, FLAGS.eps, FLAGS.nb_iter, FLAGS.stepsize)
+    NAME = '{}-{}-{}x{}-{}-{}-{}-{}-{}-{}-{}-{}-2'.format(FLAGS.N, FLAGS.chunkid, FLAGS.attack_size[0], FLAGS.attack_size[1], FLAGS.stride, FLAGS.model, FLAGS.clip_fn, FLAGS.attack_alg, FLAGS.targeted, FLAGS.eps, FLAGS.nb_iter, FLAGS.stepsize)
     if FLAGS.targeted:
         OUTPUT_PATH = os.path.join(FLAGS.output_root,'targeted', NAME)
     else:
